@@ -1,0 +1,113 @@
+#!/usr/bin/env node
+// prepare-ui.mjs
+// Pull the source Portable HTML, strip the license/webhook block, inject the
+// Electron localStorage shim, and write ui/index.html ready for Electron to load.
+//
+// Run with: node scripts/prepare-ui.mjs
+// Idempotent. Run before `npm run dev` and before any production build.
+
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, '..');
+// Prefer .src (source of truth per CLAUDE.md Rule #15); fall back to .html for
+// first-run safety if .src hasn't been created yet.
+const PORTABLE_SRC = resolve(ROOT, '..', 'eORB-Portable-Edition', 'eORB-Portable.html.src');
+const PORTABLE_BUILT = resolve(ROOT, '..', 'eORB-Portable-Edition', 'eORB-Portable.html');
+const PORTABLE = existsSync(PORTABLE_SRC) ? PORTABLE_SRC : PORTABLE_BUILT;
+const UI_DIR = join(ROOT, 'ui');
+const OUT_HTML = join(UI_DIR, 'index.html');
+const SHIM_SRC = join(UI_DIR, 'app.js');
+
+if (!existsSync(PORTABLE)) {
+  console.error('[prepare-ui] FATAL: source Portable HTML not found at:', PORTABLE);
+  process.exit(1);
+}
+
+console.log('[prepare-ui] reading', PORTABLE);
+let html = readFileSync(PORTABLE, 'utf8');
+const startedAt = Date.now();
+
+// 1. Override APP_VERSION → '1.0.0' (Electron edition, independent of Portable's version)
+html = html.replace(
+  /const\s+APP_VERSION\s*=\s*'[^']+'/,
+  "const APP_VERSION = '1.0.0' /* electron */"
+);
+
+// 2. Override the version chip suffix → 'Premium Edition'
+html = html.replace(
+  /·\s*Portable Edition/g,
+  '· Premium Edition'
+);
+
+// 3. Neutralize the activation webhook URL (kept as a dead constant; never called
+//    because the Electron license validation runs in the main process before this
+//    HTML is even loaded). This belt-and-suspenders prevents accidental fetches.
+html = html.replace(
+  /const\s+ORB_ACTIVATE_URL\s*=\s*'[^']+'/,
+  "const ORB_ACTIVATE_URL = 'about:blank' /* electron — license handled natively */"
+);
+
+// 4. Inject the localStorage→IPC shim AS THE FIRST <script> in <head>.
+//    Must run before any other script reads/writes localStorage.
+const shimTag = '<script src="./app.js"></script>';
+if (!html.includes('./app.js')) {
+  html = html.replace(/<head([^>]*)>/i, `<head$1>\n${shimTag}`);
+}
+
+// 5. Add a small "this is the Electron build" marker the renderer can detect.
+html = html.replace(
+  /<\/head>/i,
+  '<meta name="x-eorb-build" content="electron-1.0.0" />\n</head>'
+);
+
+// 6. BYPASS the Portable HTML's inner email-based activation gate.
+//    Electron's main process already validated the license before this HTML
+//    loaded. Skip the inner gate by short-circuiting init() to bootApp().
+//    We do this by transforming `async function init()` into a wrapper that
+//    checks for the Electron bridge and jumps straight to bootApp().
+{
+  const initRx = /async\s+function\s+init\s*\(\s*\)\s*\{\s*\n\s*\/\/\s*Clean up any leftover device-bound/;
+  if (initRx.test(html)) {
+    html = html.replace(
+      initRx,
+      `async function init() {
+  // [Electron build] License already validated by main process. Skip inner gate.
+  if (window.eORB && window.eORB.license) {
+    try { hideActivationGate(); } catch(_) {}
+    bootApp();
+    try { checkForUpdate(); } catch(_) {}
+    return;
+  }
+  // Clean up any leftover device-bound`
+    );
+    console.log('[prepare-ui] activation bypass patch applied to init()');
+  } else {
+    console.warn('[prepare-ui] WARNING: could not find init() function — activation bypass NOT applied. Customer will see the inner activation gate.');
+  }
+}
+
+// 7. Hide the activation-gate div by default so it never flashes on screen
+//    while init() runs. The CSS rule .hidden already exists in the source.
+html = html.replace(
+  '<div id="activation-gate" class="hidden">',
+  '<div id="activation-gate" class="hidden" style="display:none">'
+);
+
+if (!existsSync(UI_DIR)) mkdirSync(UI_DIR, { recursive: true });
+
+writeFileSync(OUT_HTML, html, 'utf8');
+
+const sizeKB = (html.length / 1024).toFixed(1);
+const ms = Date.now() - startedAt;
+console.log(`[prepare-ui] wrote ${OUT_HTML}  (${sizeKB} KB, ${ms} ms)`);
+
+if (!existsSync(SHIM_SRC)) {
+  console.warn('[prepare-ui] NOTE: ui/app.js shim is missing — Electron will fail to load. Run scripts/write-shim.mjs or create it manually.');
+} else {
+  console.log('[prepare-ui] shim present at', SHIM_SRC);
+}
+
+console.log('[prepare-ui] done.');

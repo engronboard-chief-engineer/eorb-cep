@@ -1,0 +1,70 @@
+{
+  "name": "eorb-premium",
+  "productName": "eORB Premium",
+  "version": "1.0.0",
+  "description": "Electronic Oil Record Book — Chief Engineer Pro (Secured Desktop Edition)",
+  "author": {
+    "name": "Chief Engineer Pro",
+    "email": "engr.onboard@gmail.com"
+  },
+  "main": "electron/main.js",
+  "scripts": {
+    "prep": "node scripts/prepare-ui.mjs",
+    "dev": "npm run prep && node scripts/launch-dev.js",
+    "obfuscate": "node scripts/obfuscate.js",
+    "integrity": "node scripts/compute-integrity.js",
+    "build": "npm run prep && npm run obfuscate && npm run integrity",
+    "dist": "electron-builder --win",
+    "release": "npm run build && npm run dist",
+    "watermark": "node scripts/build-watermark.js",
+    "genkey": "node scripts/generate-license-key.js",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "node-machine-id": "^1.1.12"
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8",
+    "javascript-obfuscator": "^4.1.1"
+  },
+  "build": {
+    "appId": "com.chiefengineerpro.eorb",
+    "productName": "eORB Premium",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "ui/**/*",
+      "!**/*.src.*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,.npmignore}",
+      "!**/node_modules/*.d.ts"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "eORB Premium",
+      "include": "build/installer.nsh"
+    }
+  }
+}

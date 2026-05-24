@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>eORB Premium — Activation</title>
+<style>
+  :root {
+    --bg-0: #0a0d12;
+    --bg-1: #11161e;
+    --bg-2: #1a212c;
+    --border: #232b38;
+    --text: #e5edf5;
+    --muted: #8896a8;
+    --gold: #c9a227;
+    --gold-soft: rgba(201,162,39,0.16);
+    --err: #ff6b6b;
+    --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(1100px 600px at 50% -10%, #1a2433 0%, var(--bg-0) 65%);
+    color: var(--text);
+    font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
+    display: grid;
+    place-items: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: min(560px, 92vw);
+    background: linear-gradient(180deg, var(--bg-1), #0c1118);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 36px 36px 28px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .crest {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: var(--gold-soft);
+    border: 1px solid rgba(201,162,39,0.35);
+    display: grid; place-items: center;
+    color: var(--gold);
+    font-weight: 700; font-size: 22px;
+    letter-spacing: 0.06em;
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin: 0 0 22px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 18px 0 8px;
+  }
+  input.key {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 15px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input.key:focus {
+    border-color: var(--gold);
+    background: #1d2532;
+  }
+  .btn {
+    width: 100%;
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--gold);
+    color: #1a1300;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    font-size: 14.5px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: filter 0.12s, transform 0.06s;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(1px); }
+  .btn[disabled] {
+    background: #3a3a3a; color: #888; cursor: not-allowed; filter: none;
+  }
+  .msg {
+    margin-top: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 12px 14px;
+    border-radius: 8px;
+    display: none;
+  }
+  .msg.err {
+    display: block;
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.35);
+    color: var(--err);
+  }
+  .msg.ok {
+    display: block;
+    background: rgba(74,222,128,0.08);
+    border: 1px solid rgba(74,222,128,0.35);
+    color: var(--ok);
+  }
+  .fp {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--border);
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.6;
+    word-break: break-all;
+  }
+  .fp strong { color: var(--text); }
+  .meta {
+    margin-top: 22px;
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .meta span { padding: 4px 10px; background: var(--bg-2); border-radius: 6px; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="crest">CE</div>
+    <h1>Activate eORB Premium</h1>
+    <p class="sub">Enter the license key emailed to you by Chief Engineer Pro. Activation is one-time. After activation, this app runs fully offline forever — no expiry, no re-checks.</p>
+
+    <label for="key">License Key</label>
+    <input id="key" class="key" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" autocomplete="off" spellcheck="false" autofocus />
+
+    <button id="go" class="btn">Activate</button>
+    <div id="msg" class="msg"></div>
+
+    <div class="fp">
+      <strong>This machine fingerprint</strong> (your license will be locked to this hardware):<br />
+      <span id="fp">computing&hellip;</span>
+    </div>
+    <div class="meta">
+      <span id="ver">v</span>
+      <span id="cid"></span>
+    </div>
+  </main>
+
+<script>
+  (async function () {
+    const $key = document.getElementById('key');
+    const $btn = document.getElementById('go');
+    const $msg = document.getElementById('msg');
+    const $fp  = document.getElementById('fp');
+    const $ver = document.getElementById('ver');
+    const $cid = document.getElementById('cid');
+
+    function showMsg(text, cls) {
+      $msg.textContent = text;
+      $msg.className = 'msg ' + cls;
+    }
+
+    function formatKey(v) {
+      const clean = (v || '').replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 16);
+      return clean.match(/.{1,4}/g)?.join('-') || '';
+    }
+
+    $key.addEventListener('input', () => {
+      const pos = $key.selectionStart;
+      const before = $key.value;
+      $key.value = formatKey(before);
+      try { $key.setSelectionRange($key.value.length, $key.value.length); } catch {}
+    });
+
+    try {
+      const meta = await window.eORB.meta();
+      $ver.textContent = 'v' + meta.version;
+      $cid.textContent = meta.customerId;
+    } catch {}
+
+    try {
+      const fp = await window.eORB.license.fingerprint();
+      $fp.textContent = fp.hash.slice(0, 32) + '…';
+    } catch {
+      $fp.textContent = 'unavailable';
+    }
+
+    async function submit() {
+      const key = $key.value.trim();
+      if (key.replace(/-/g,'').length !== 16) {
+        showMsg('License key must be 16 characters (XXXX-XXXX-XXXX-XXXX).', 'err');
+        return;
+      }
+      $btn.disabled = true;
+      $btn.textContent = 'Activating…';
+      const res = await window.eORB.license.activate(key);
+      if (res.ok) {
+        showMsg('Activation successful. Launching the app…', 'ok');
+      } else {
+        showMsg(res.reason || 'Activation failed.', 'err');
+        $btn.disabled = false;
+        $btn.textContent = 'Activate';
+      }
+    }
+
+    $btn.addEventListener('click', submit);
+    $key.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.secrets/
+electron/
+!electron-src/
+ui/index.html
+build/integrity-manifest.json
+*.dat
+*.db
+*.db-journal
+package-lock.json
+*.log
+.DS_Store
+Thumbs.db
