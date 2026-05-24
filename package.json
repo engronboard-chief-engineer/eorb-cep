@@ -1,8 +1,8 @@
 {
-  "name": "eorb-premium",
-  "productName": "eORB Premium",
+  "name": "eorb-cep",
+  "productName": "eORB CEP",
   "version": "1.0.0",
-  "description": "Electronic Oil Record Book — Chief Engineer Pro (Secured Desktop Edition)",
+  "description": "Electronic Oil Record Book — Chief Engineer Pro (Locked Desktop Edition)",
   "author": {
     "name": "Chief Engineer Pro",
     "email": "engr.onboard@gmail.com"
@@ -10,12 +10,16 @@
   "main": "electron/main.js",
   "scripts": {
     "prep": "node scripts/prepare-ui.mjs",
-    "dev": "npm run prep && node scripts/launch-dev.js",
+    "copy-src-dev": "node scripts/copy-src-dev.js",
+    "dev": "npm run copy-src-dev && npm run prep && node scripts/launch-dev.js",
     "obfuscate": "node scripts/obfuscate.js",
     "integrity": "node scripts/compute-integrity.js",
     "build": "npm run prep && npm run obfuscate && npm run integrity",
-    "dist": "electron-builder --win",
-    "release": "npm run build && npm run dist",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "release:win": "npm run build && npm run dist:win",
+    "release:mac": "npm run build && npm run dist:mac",
     "watermark": "node scripts/build-watermark.js",
     "genkey": "node scripts/generate-license-key.js",
     "postinstall": "electron-builder install-app-deps"
@@ -25,13 +29,14 @@
     "node-machine-id": "^1.1.12"
   },
   "devDependencies": {
+    "@electron/fuses": "^2.1.1",
     "electron": "^32.2.0",
     "electron-builder": "^25.1.8",
     "javascript-obfuscator": "^4.1.1"
   },
   "build": {
-    "appId": "com.chiefengineerpro.eorb",
-    "productName": "eORB Premium",
+    "appId": "com.chiefengineerpro.eorbcep",
+    "productName": "eORB CEP",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -39,23 +44,30 @@
     "files": [
       "electron/**/*",
       "ui/**/*",
+      "build/integrity-manifest.json",
+      "!ui/app.src.js",
       "!**/*.src.*",
-      "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,.npmignore}",
-      "!**/node_modules/*.d.ts"
+      "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,.npmignore,test,tests,docs,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/*/*.map"
     ],
     "asar": true,
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*"
     ],
+    "afterPack": "scripts/after-pack.js",
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
@@ -63,8 +75,29 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "eORB Premium",
+      "shortcutName": "eORB CEP",
       "include": "build/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "writeUpdateInfo": false
     }
   }
 }

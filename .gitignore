@@ -4,6 +4,7 @@ dist/
 electron/
 !electron-src/
 ui/index.html
+ui/app.js
 build/integrity-manifest.json
 *.dat
 *.db

@@ -1,4 +1,4 @@
-# eORB Premium — Build & Release
+# eORB CEP — Build & Release
 
 Internal docs. Not shipped to customers.
 
@@ -62,7 +62,7 @@ npm run build
 # 4) Package as Windows installer (.exe)
 npm run dist
 
-# Output: dist/eORB Premium-1.0.0-x64.exe
+# Output: dist/eORB CEP-1.0.0-x64.exe
 # Rename if desired: eORB-Premium-CEP-2026-0001.exe
 ```
 
@@ -108,7 +108,7 @@ const key = `${block.slice(0,4)}-${block.slice(4,8)}-${block.slice(8,12)}-${bloc
 2. Customer launches → `activation.html` shown
 3. Customer enters license key → `activation.js` validates against the
    customerId/email baked into THIS build → creates `license.dat` in
-   `%APPDATA%/eORB Premium/` encrypted with this machine's hardware fingerprint
+   `%APPDATA%/eORB CEP/` encrypted with this machine's hardware fingerprint
 4. App relaunches into `ui/index.html` (the eORB simulator)
 5. Forever after: validates `license.dat` on every startup, runs fully offline
 

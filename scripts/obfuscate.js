@@ -1,18 +1,27 @@
 #!/usr/bin/env node
 // obfuscate.js
-// Production JS obfuscation pass over electron/ and ui/app.js.
-// Shared module: PWA and Portable build scripts import obfuscateString().
+// Production JS obfuscation pass.
+// SOURCE: electron-src/**/*.src.js  (plaintext, hand-edited, in git)
+// OUTPUT: electron/**/*.js          (obfuscated, gitignored, regenerated each build)
 //
-// Run with: node scripts/obfuscate.js
-// Skips _watermark.js (intentionally readable so build-watermark.js can patch it).
+// CRITICAL: never overwrites source. The previous in-place version destroyed
+// the entire source tree on 2026-05-24. See feedback_electron-obfuscate-in-place
+// in user memory. Source and output paths MUST be distinct.
+//
+// Also exports obfuscateBrowserString() so the PWA + Portable build scripts can
+// share the BROWSER_OPTIONS profile.
 
 const fs = require('fs');
 const path = require('path');
 const JavaScriptObfuscator = require('javascript-obfuscator');
 
 const ROOT = path.resolve(__dirname, '..');
+const SRC_DIR = path.join(ROOT, 'electron-src');
+const OUT_DIR = path.join(ROOT, 'electron');
 
-// Base options — safe for ALL contexts (main process, renderer, browser, single-file HTML).
+// Base options - safe for Node main process (Electron's electron/*.js).
+// selfDefending + disableConsoleOutput call process.exit() under Node, so they
+// MUST stay false here. See feedback_electron-obfuscator-selfdefending memory.
 const DEFAULT_OPTIONS = {
   compact: true,
   controlFlowFlattening: true,
@@ -41,9 +50,8 @@ const DEFAULT_OPTIONS = {
   unicodeEscapeSequence: false
 };
 
-// Stricter options for browser/renderer JS where we want anti-debugging.
-// selfDefending crashes in Node main process (detects non-browser env and bails),
-// so it MUST stay false for electron/*.js. Safe in browser/renderer.
+// Stricter options for browser/renderer JS (ui/app.js, PWA, Portable).
+// Safe in browser because there's no process.exit().
 const BROWSER_OPTIONS = {
   ...DEFAULT_OPTIONS,
   selfDefending: true,
@@ -60,65 +68,98 @@ function obfuscateBrowserString(code, extraOptions = {}) {
   return JavaScriptObfuscator.obfuscate(code, opts).getObfuscatedCode();
 }
 
-function obfuscateFile(absPath, extraOptions = {}) {
-  const src = fs.readFileSync(absPath, 'utf8');
-  const out = obfuscateString(src, extraOptions);
-  fs.writeFileSync(absPath, out, 'utf8');
-  return { path: absPath, before: src.length, after: out.length };
-}
-
-function obfuscateBrowserFile(absPath, extraOptions = {}) {
-  const src = fs.readFileSync(absPath, 'utf8');
-  const out = obfuscateBrowserString(src, extraOptions);
-  fs.writeFileSync(absPath, out, 'utf8');
-  return { path: absPath, before: src.length, after: out.length };
-}
-
-function walk(dir, filter) {
+function walkSrc(dir) {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(p, filter));
-    else if (filter(p)) out.push(p);
+    if (entry.isDirectory()) out.push(...walkSrc(p));
+    else if (entry.isFile()) out.push(p);
   }
   return out;
 }
 
-function runStandalone() {
-  // electron/*.js → Node main process. MUST use DEFAULT_OPTIONS (selfDefending off).
-  const mainTargets = walk(path.join(ROOT, 'electron'), p =>
-    p.endsWith('.js') && !p.endsWith('_watermark.js')
-  );
-  // ui/app.js → browser renderer. Can use stronger BROWSER_OPTIONS.
-  const rendererTargets = [path.join(ROOT, 'ui', 'app.js')];
+function srcToOut(srcAbsPath) {
+  const rel = path.relative(SRC_DIR, srcAbsPath);
+  // Strip the .src suffix: foo.src.js -> foo.js
+  const stripped = rel.replace(/\.src\.js$/, '.js');
+  return path.join(OUT_DIR, stripped);
+}
 
-  let totalBefore = 0, totalAfter = 0;
-  for (const t of mainTargets) {
-    if (!fs.existsSync(t)) {
-      console.warn('[obfuscate] skip (missing):', path.relative(ROOT, t));
+function ensureDir(p) {
+  const d = path.dirname(p);
+  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+}
+
+function runStandalone() {
+  if (!fs.existsSync(SRC_DIR)) {
+    console.error('[obfuscate] FATAL: source dir missing:', SRC_DIR);
+    process.exit(1);
+  }
+
+  // Wipe the output dir so we never carry stale .js files from a removed source.
+  if (fs.existsSync(OUT_DIR)) {
+    fs.rmSync(OUT_DIR, { recursive: true, force: true });
+  }
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  const allSrc = walkSrc(SRC_DIR);
+  let totalIn = 0, totalOut = 0, count = 0;
+
+  for (const srcPath of allSrc) {
+    const base = path.basename(srcPath);
+
+    // _watermark.js: copy through plaintext, never obfuscate.
+    // build-watermark.js patches it per-customer; obfuscating it would defeat
+    // that and could also break the require() shape used by activation.
+    if (base === '_watermark.js') {
+      const outPath = path.join(OUT_DIR, path.relative(SRC_DIR, srcPath));
+      ensureDir(outPath);
+      fs.copyFileSync(srcPath, outPath);
+      const sz = fs.statSync(outPath).size;
+      totalIn += sz; totalOut += sz;
+      console.log(`[obfuscate:copy] ${path.relative(ROOT, srcPath).padEnd(50)} -> ${path.relative(ROOT, outPath)}  (${sz} B)`);
       continue;
     }
-    const r = obfuscateFile(t);
-    totalBefore += r.before; totalAfter += r.after;
-    console.log(`[obfuscate:main]    ${path.relative(ROOT, t).padEnd(46)} ${r.before} → ${r.after}`);
-  }
-  for (const t of rendererTargets) {
-    if (!fs.existsSync(t)) {
-      console.warn('[obfuscate] skip (missing):', path.relative(ROOT, t));
+
+    // Anything that isn't a .src.js source file is skipped.
+    if (!srcPath.endsWith('.src.js')) {
+      console.warn('[obfuscate] skip (not .src.js):', path.relative(ROOT, srcPath));
       continue;
     }
-    const r = obfuscateBrowserFile(t);
-    totalBefore += r.before; totalAfter += r.after;
-    console.log(`[obfuscate:browser] ${path.relative(ROOT, t).padEnd(46)} ${r.before} → ${r.after}`);
+
+    const code = fs.readFileSync(srcPath, 'utf8');
+    const obf = obfuscateString(code);
+    const outPath = srcToOut(srcPath);
+    ensureDir(outPath);
+    fs.writeFileSync(outPath, obf, 'utf8');
+
+    totalIn += code.length;
+    totalOut += obf.length;
+    count++;
+    console.log(`[obfuscate:main] ${path.relative(ROOT, srcPath).padEnd(50)} -> ${path.relative(ROOT, outPath)}  ${code.length} -> ${obf.length}`);
   }
-  console.log(`[obfuscate] total ${totalBefore} → ${totalAfter} bytes`);
+
+  // Renderer-side shim: ui/app.src.js -> ui/app.js (BROWSER_OPTIONS).
+  // Source stays in git, build artifact ui/app.js is gitignored.
+  const rendererSrc = path.join(ROOT, 'ui', 'app.src.js');
+  const rendererOut = path.join(ROOT, 'ui', 'app.js');
+  if (fs.existsSync(rendererSrc)) {
+    const code = fs.readFileSync(rendererSrc, 'utf8');
+    const obf = obfuscateBrowserString(code);
+    fs.writeFileSync(rendererOut, obf, 'utf8');
+    totalIn += code.length;
+    totalOut += obf.length;
+    console.log(`[obfuscate:browser] ui/app.src.js -> ui/app.js  ${code.length} -> ${obf.length}`);
+  } else {
+    console.warn('[obfuscate] ui/app.src.js missing; skipping renderer shim');
+  }
+
+  console.log(`[obfuscate] ${count} src files obfuscated, total ${totalIn} -> ${totalOut} bytes`);
 }
 
 module.exports = {
   obfuscateString,
   obfuscateBrowserString,
-  obfuscateFile,
-  obfuscateBrowserFile,
   DEFAULT_OPTIONS,
   BROWSER_OPTIONS
 };

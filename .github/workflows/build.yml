@@ -1,0 +1,93 @@
+name: Build eORB CEP
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Provision master secret
+        shell: pwsh
+        env:
+          EORB_MASTER_SECRET: ${{ secrets.EORB_MASTER_SECRET }}
+        run: |
+          if (-not $env:EORB_MASTER_SECRET) {
+            Write-Error "EORB_MASTER_SECRET repo secret is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          }
+          New-Item -ItemType Directory -Force .secrets | Out-Null
+          $env:EORB_MASTER_SECRET | Set-Content -NoNewline -Encoding utf8 .secrets/master.txt
+
+      - name: Install deps (no native compile)
+        shell: pwsh
+        run: |
+          npm install --ignore-scripts
+          node node_modules/electron/install.js
+          npx electron-builder install-app-deps
+
+      - name: Build (prep + obfuscate + integrity)
+        run: npm run build
+
+      - name: Package Windows installer
+        run: npm run dist:win
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: eorb-cep-windows
+          path: |
+            dist/eORB CEP-*.exe
+            dist/eORB CEP-*.exe.blockmap
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Provision master secret
+        env:
+          EORB_MASTER_SECRET: ${{ secrets.EORB_MASTER_SECRET }}
+        run: |
+          if [ -z "$EORB_MASTER_SECRET" ]; then
+            echo "EORB_MASTER_SECRET repo secret is not set." >&2
+            exit 1
+          fi
+          mkdir -p .secrets
+          printf '%s' "$EORB_MASTER_SECRET" > .secrets/master.txt
+
+      - name: Install deps (no native compile)
+        run: |
+          npm install --ignore-scripts
+          node node_modules/electron/install.js
+          npx electron-builder install-app-deps
+
+      - name: Build (prep + obfuscate + integrity)
+        run: npm run build
+
+      - name: Package macOS dmg (unsigned)
+        run: npm run dist:mac
+        env:
+          # Skip code signing -- we don't have an Apple Developer cert yet.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: eorb-cep-macos
+          path: |
+            dist/eORB CEP-*.dmg
+            dist/eORB CEP-*.dmg.blockmap

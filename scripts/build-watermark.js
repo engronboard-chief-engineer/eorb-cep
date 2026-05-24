@@ -22,7 +22,9 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
-const WATERMARK_FILE = path.join(ROOT, 'electron', '_watermark.js');
+// SOURCE watermark file (plaintext, hand-edited or patched per-customer).
+// Build pipeline copies this to electron/_watermark.js unchanged (not obfuscated).
+const WATERMARK_FILE = path.join(ROOT, 'electron-src', '_watermark.js');
 const SECRETS_DIR = path.join(ROOT, '.secrets');
 const MASTER_SECRET_FILE = path.join(SECRETS_DIR, 'master.txt');
 

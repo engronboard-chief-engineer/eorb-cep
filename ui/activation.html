@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>eORB Premium — Activation</title>
+<title>eORB CEP — Activation</title>
 <style>
   :root {
     --bg-0: #0a0d12;
@@ -144,7 +144,7 @@
 <body>
   <main class="card">
     <div class="crest">CE</div>
-    <h1>Activate eORB Premium</h1>
+    <h1>Activate eORB CEP</h1>
     <p class="sub">Enter the license key emailed to you by Chief Engineer Pro. Activation is one-time. After activation, this app runs fully offline forever — no expiry, no re-checks.</p>
 
     <label for="key">License Key</label>
@@ -190,17 +190,17 @@
     });
 
     try {
-      const meta = await window.eORB.meta();
-      $ver.textContent = 'v' + meta.version;
-      $cid.textContent = meta.customerId;
+      if (window.eORB && window.eORB.build) {
+        $ver.textContent = 'v' + window.eORB.build.version + ' · ' + window.eORB.build.platform;
+      }
+      // Customer ID isn't exposed pre-activation -- only the license fingerprint
+      // is meaningful at this screen, and machine fingerprint is computed in main.
+      $cid.textContent = '';
     } catch {}
 
-    try {
-      const fp = await window.eORB.license.fingerprint();
-      $fp.textContent = fp.hash.slice(0, 32) + '…';
-    } catch {
-      $fp.textContent = 'unavailable';
-    }
+    // Machine fingerprint isn't exposed to the renderer for security; show
+    // a stable placeholder instead. The actual hash is computed in main.
+    $fp.textContent = 'computed in app (machine-locked)';
 
     async function submit() {
       const key = $key.value.trim();
@@ -210,11 +210,17 @@
       }
       $btn.disabled = true;
       $btn.textContent = 'Activating…';
-      const res = await window.eORB.license.activate(key);
-      if (res.ok) {
-        showMsg('Activation successful. Launching the app…', 'ok');
-      } else {
-        showMsg(res.reason || 'Activation failed.', 'err');
+      try {
+        const res = await window.eORB.activate(key);
+        if (res && res.ok) {
+          showMsg('Activation successful. Launching the app…', 'ok');
+        } else {
+          showMsg((res && (res.error || res.reason)) || 'Activation failed.', 'err');
+          $btn.disabled = false;
+          $btn.textContent = 'Activate';
+        }
+      } catch (err) {
+        showMsg('Activation failed: ' + (err && err.message), 'err');
         $btn.disabled = false;
         $btn.textContent = 'Activate';
       }

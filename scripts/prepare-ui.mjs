@@ -36,10 +36,17 @@ html = html.replace(
   "const APP_VERSION = '1.0.0' /* electron */"
 );
 
-// 2. Override the version chip suffix → 'Premium Edition'
+// 2. Override the version chip suffix → 'CEP Edition'
 html = html.replace(
   /·\s*Portable Edition/g,
-  '· Premium Edition'
+  '· CEP Edition'
+);
+
+// 2b. Update the document <title> from the Portable's title to the CEP brand
+//     so the window title bar shows "eORB CEP" instead of "...Portable Edition".
+html = html.replace(
+  /<title>[^<]*<\/title>/i,
+  '<title>eORB CEP — Electronic Oil Record Book</title>'
 );
 
 // 3. Neutralize the activation webhook URL (kept as a dead constant; never called
@@ -104,10 +111,18 @@ const sizeKB = (html.length / 1024).toFixed(1);
 const ms = Date.now() - startedAt;
 console.log(`[prepare-ui] wrote ${OUT_HTML}  (${sizeKB} KB, ${ms} ms)`);
 
-if (!existsSync(SHIM_SRC)) {
-  console.warn('[prepare-ui] NOTE: ui/app.js shim is missing — Electron will fail to load. Run scripts/write-shim.mjs or create it manually.');
+// Copy ui/app.src.js -> ui/app.js if needed. In dev runs (no obfuscate pass),
+// this is the plaintext shim Electron loads. The obfuscate script overwrites
+// ui/app.js with the obfuscated version during production builds.
+const SHIM_REAL_SRC = join(UI_DIR, 'app.src.js');
+if (existsSync(SHIM_REAL_SRC)) {
+  const shimCode = readFileSync(SHIM_REAL_SRC, 'utf8');
+  writeFileSync(SHIM_SRC, shimCode, 'utf8');
+  console.log(`[prepare-ui] copied app.src.js -> app.js (plaintext, ${shimCode.length} B)`);
+} else if (!existsSync(SHIM_SRC)) {
+  console.warn('[prepare-ui] NOTE: ui/app.src.js AND ui/app.js missing — Electron will fail to load.');
 } else {
-  console.log('[prepare-ui] shim present at', SHIM_SRC);
+  console.log('[prepare-ui] shim present at', SHIM_SRC, '(no .src found, using existing)');
 }
 
 console.log('[prepare-ui] done.');
