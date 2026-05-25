@@ -12,11 +12,14 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-// Prefer .src (source of truth per CLAUDE.md Rule #15); fall back to .html for
-// first-run safety if .src hasn't been created yet.
-const PORTABLE_SRC = resolve(ROOT, '..', 'eORB-Portable-Edition', 'eORB-Portable.html.src');
-const PORTABLE_BUILT = resolve(ROOT, '..', 'eORB-Portable-Edition', 'eORB-Portable.html');
-const PORTABLE = existsSync(PORTABLE_SRC) ? PORTABLE_SRC : PORTABLE_BUILT;
+// In CI the Portable source is bundled inside the repo under portable-src/.
+// For local dev it may live in the sibling eORB-Portable-Edition folder instead.
+const PORTABLE_BUNDLED_SRC  = resolve(ROOT, 'portable-src', 'eORB-Portable.html.src');
+const PORTABLE_SIBLING_SRC  = resolve(ROOT, '..', 'eORB-Portable-Edition', 'eORB-Portable.html.src');
+const PORTABLE_SIBLING_BUILT = resolve(ROOT, '..', 'eORB-Portable-Edition', 'eORB-Portable.html');
+const PORTABLE = existsSync(PORTABLE_BUNDLED_SRC)  ? PORTABLE_BUNDLED_SRC
+               : existsSync(PORTABLE_SIBLING_SRC)  ? PORTABLE_SIBLING_SRC
+               : PORTABLE_SIBLING_BUILT;
 const UI_DIR = join(ROOT, 'ui');
 const OUT_HTML = join(UI_DIR, 'index.html');
 const SHIM_SRC = join(UI_DIR, 'app.js');
