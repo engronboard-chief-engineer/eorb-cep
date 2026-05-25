@@ -33,10 +33,13 @@ console.log('[prepare-ui] reading', PORTABLE);
 let html = readFileSync(PORTABLE, 'utf8');
 const startedAt = Date.now();
 
-// 1. Override APP_VERSION → '1.0.0' (Electron edition, independent of Portable's version)
+// 1. Override APP_VERSION → '<sim>-electron' to satisfy CLAUDE.md Rule #14:
+//    the numeric version must match PWA/Portable; the suffix marks the build.
+//    The Electron .exe app version (for self-update checks) is separate and
+//    lives in main.src.js APP_VERSION.
 html = html.replace(
-  /const\s+APP_VERSION\s*=\s*'[^']+'/,
-  "const APP_VERSION = '1.0.0' /* electron */"
+  /const\s+APP_VERSION\s*=\s*'([^']+?)(?:-portable)?'/,
+  (_m, num) => `const APP_VERSION = '${num}-electron' /* electron */`
 );
 
 // 2. Override the version chip suffix → 'CEP Edition'
@@ -68,10 +71,15 @@ if (!html.includes('./app.js')) {
 }
 
 // 5. Add a small "this is the Electron build" marker the renderer can detect.
-html = html.replace(
-  /<\/head>/i,
-  '<meta name="x-eorb-build" content="electron-1.0.0" />\n</head>'
-);
+//    Derive sim version from the (now-rewritten) APP_VERSION line above.
+{
+  const m = html.match(/const\s+APP_VERSION\s*=\s*'([^']+)'/);
+  const simVer = m ? m[1] : 'electron';
+  html = html.replace(
+    /<\/head>/i,
+    `<meta name="x-eorb-build" content="${simVer}" />\n</head>`
+  );
+}
 
 // 6. BYPASS the Portable HTML's inner email-based activation gate.
 //    Electron's main process already validated the license before this HTML

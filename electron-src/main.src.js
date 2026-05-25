@@ -13,7 +13,7 @@ const integrity = require('./security/integrity');
 const machine = require('./security/machine');
 const db = require('./db');
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const UPDATE_FEED_URL = 'https://chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;
@@ -36,7 +36,7 @@ function parseEorbProtocolUrl(rawUrl) {
 async function handleProtocolActivation(rawUrl) {
   const params = parseEorbProtocolUrl(rawUrl);
   if (!params) return;
-  const result = activation.activate(params.key, userDataDir());
+  const result = activation.activate(params.key, params.email, userDataDir());
   if (result.ok && mainWindow) {
     mainWindow.focus();
     setTimeout(() => {
@@ -181,9 +181,18 @@ function registerIpc() {
     event.returnValue = { license: lic, store };
   });
 
-  ipcMain.handle('eorb:activate', async (_evt, key) => {
+  ipcMain.handle('eorb:activate', async (_evt, payload) => {
+    // payload may be a string (legacy) or { key, email } (current).
+    let key, email;
+    if (payload && typeof payload === 'object') {
+      key = payload.key;
+      email = payload.email;
+    } else {
+      key = payload;
+      email = '';
+    }
     try {
-      const result = activation.activate(key, userDataDir());
+      const result = activation.activate(key, email, userDataDir());
       if (result.ok) {
         // Reload window into the eORB UI.
         if (mainWindow) {

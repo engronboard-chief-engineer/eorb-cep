@@ -145,10 +145,13 @@
   <main class="card">
     <div class="crest">CE</div>
     <h1>Activate eORB CEP</h1>
-    <p class="sub">Enter the license key emailed to you by Chief Engineer Pro. Activation is one-time. After activation, this app runs fully offline forever — no expiry, no re-checks.</p>
+    <p class="sub">Enter the email you used to buy Chief Engineer Pro and the license key from your downloads page. Activation is one-time. After activation, this app runs fully offline forever — no expiry, no re-checks.</p>
+
+    <label for="email">Account Email</label>
+    <input id="email" class="key" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false" autofocus />
 
     <label for="key">License Key</label>
-    <input id="key" class="key" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" autocomplete="off" spellcheck="false" autofocus />
+    <input id="key" class="key" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" autocomplete="off" spellcheck="false" />
 
     <button id="go" class="btn">Activate</button>
     <div id="msg" class="msg"></div>
@@ -166,6 +169,7 @@
 <script>
   (async function () {
     const $key = document.getElementById('key');
+    const $email = document.getElementById('email');
     const $btn = document.getElementById('go');
     const $msg = document.getElementById('msg');
     const $fp  = document.getElementById('fp');
@@ -204,6 +208,11 @@
 
     async function submit() {
       const key = $key.value.trim();
+      const email = ($email.value || '').trim().toLowerCase();
+      if (!email || email.indexOf('@') < 1) {
+        showMsg('Enter the email you used at checkout.', 'err');
+        return;
+      }
       if (key.replace(/-/g,'').length !== 16) {
         showMsg('License key must be 16 characters (XXXX-XXXX-XXXX-XXXX).', 'err');
         return;
@@ -211,7 +220,7 @@
       $btn.disabled = true;
       $btn.textContent = 'Activating…';
       try {
-        const res = await window.eORB.activate(key);
+        const res = await window.eORB.activate(key, email);
         if (res && res.ok) {
           showMsg('Activation successful. Launching the app…', 'ok');
         } else {
@@ -228,6 +237,7 @@
 
     $btn.addEventListener('click', submit);
     $key.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    $email.addEventListener('keydown', (e) => { if (e.key === 'Enter') $key.focus(); });
   })();
 </script>
 </body>

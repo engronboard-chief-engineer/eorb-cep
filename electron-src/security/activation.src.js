@@ -1,17 +1,22 @@
 // activation.src.js
 // License key validation + license.dat lifecycle.
 //
-// Key algorithm (must match scripts/generate-license-key.js and the n8n
-// key-gen workflow EXACTLY -- otherwise customer keys won't validate):
+// Key algorithm (must match scripts/generate-license-key.js, the n8n key-gen
+// workflow, and /api/promo-auth.js get-electron-key EXACTLY -- otherwise
+// customer keys won't validate):
 //
 //   norm   = email.toLowerCase().trim()
 //   hmac   = HMAC_SHA256(masterSecret, customerId + '|' + norm)        // hex
 //   block  = hmac.slice(0,16).toUpperCase()                            // 16 chars
 //   key    = block[0..4] + '-' + block[4..8] + '-' + block[8..12] + '-' + block[12..16]
 //
-// Customer-bound: each build has _watermark.js patched with (customerId, email,
-// masterSecret), so only the key generated for THAT customer's identity
-// validates against THAT build.
+// Shared-build, per-buyer key model:
+//   The build ships with a shared watermark (customerId = "TEST-0001",
+//   masterSecret = production secret). The server issues a UNIQUE key per
+//   buyer by hashing the buyer's email into the HMAC. So at activation the
+//   user supplies BOTH key AND email; we recompute the expected key from
+//   their email and compare. The actual buyer email is stored in license.dat
+//   so subsequent launches re-validate against the right identity.
 
 const fs = require('fs');
 const path = require('path');
@@ -21,8 +26,8 @@ const wm = require('../_watermark');
 const enc = require('./crypto');
 const machine = require('./machine');
 
-function expectedLicenseKey() {
-  const norm = (wm.email || '').toLowerCase().trim();
+function expectedLicenseKeyFor(email) {
+  const norm = String(email || '').toLowerCase().trim();
   const h = crypto.createHmac('sha256', wm.masterSecret).update(wm.customerId + '|' + norm).digest('hex');
   const b = h.slice(0, 16).toUpperCase();
   return `${b.slice(0, 4)}-${b.slice(4, 8)}-${b.slice(8, 12)}-${b.slice(12, 16)}`;
@@ -32,8 +37,10 @@ function normalizeUserKey(input) {
   return String(input || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
 }
 
-function validateKey(userInput) {
-  const expected = expectedLicenseKey().replace(/-/g, '');
+function validateKey(userInput, email) {
+  const norm = String(email || '').toLowerCase().trim();
+  if (!norm || norm.indexOf('@') < 1) return false;
+  const expected = expectedLicenseKeyFor(norm).replace(/-/g, '');
   const got = normalizeUserKey(userInput);
   if (got.length !== 16 || expected.length !== 16) return false;
   // Constant-time compare to avoid trivial timing leaks.
@@ -46,14 +53,18 @@ function licensePath(userDataDir) {
   return path.join(userDataDir, 'license.dat');
 }
 
-function activate(userInput, userDataDir) {
-  if (!validateKey(userInput)) {
-    return { ok: false, error: 'Invalid license key for this build.' };
+function activate(userInput, email, userDataDir) {
+  const norm = String(email || '').toLowerCase().trim();
+  if (!norm || norm.indexOf('@') < 1) {
+    return { ok: false, error: 'Email is required to activate.' };
+  }
+  if (!validateKey(userInput, norm)) {
+    return { ok: false, error: 'Invalid license key for this email.' };
   }
   const lic = {
     customer_id: wm.customerId,
-    email: wm.email,
-    license_key: expectedLicenseKey(),
+    email: norm,
+    license_key: expectedLicenseKeyFor(norm),
     activation_date: new Date().toISOString(),
     machine_hash: machine.getFingerprint(),
     build_id: wm.buildId,
@@ -86,9 +97,11 @@ function loadLicense(userDataDir) {
   // would have failed if the fingerprint had changed, but a sophisticated
   // attacker could in theory swap files).
   if (lic.machine_hash !== machine.getFingerprint()) return null;
-  // Re-verify the embedded license_key matches this build's expected key
-  // (defense against using a license.dat from a different customer's build).
-  if (lic.license_key !== expectedLicenseKey()) return null;
+  // Re-verify the embedded license_key matches the key derived from the
+  // stored buyer email (defense against tampered license.dat with mismatched
+  // email/key pair). We trust the stored email because the file was sealed
+  // with crypto.encryptJSON tied to machine state.
+  if (!lic.email || lic.license_key !== expectedLicenseKeyFor(lic.email)) return null;
   return lic;
 }
 
@@ -105,7 +118,7 @@ function clearLicense(userDataDir) {
 }
 
 module.exports = {
-  expectedLicenseKey,
+  expectedLicenseKeyFor,
   validateKey,
   activate,
   loadLicense,

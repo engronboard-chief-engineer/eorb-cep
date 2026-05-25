@@ -4,10 +4,10 @@
 // things the renderer can call are what contextBridge exposes here.
 //
 // Renderer-side surface:
-//   window.eORB.license        -> object | null  (resolved at preload time)
-//   window.eORB.activate(key)  -> Promise<{ok, error?}>
-//   window.eORB.store          -> sync KV (hydrated boot, async writes)
-//   window.eORB.updates.check  -> Promise<{currentVersion, latestVersion, ...}>
+//   window.eORB.license               -> object | null  (resolved at preload time)
+//   window.eORB.activate(key, email)  -> Promise<{ok, error?}>
+//   window.eORB.store                 -> sync KV (hydrated boot, async writes)
+//   window.eORB.updates.check         -> Promise<{currentVersion, latestVersion, ...}>
 
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -32,8 +32,8 @@ contextBridge.exposeInMainWorld('eORB', {
   // License info accessible synchronously by the renderer at any time.
   license: _license,
 
-  // Activation: validates the key in main, writes encrypted license.dat.
-  activate: (key) => ipcRenderer.invoke('eorb:activate', key),
+  // Activation: validates the (key, email) pair in main, writes encrypted license.dat.
+  activate: (key, email) => ipcRenderer.invoke('eorb:activate', { key: String(key || ''), email: String(email || '') }),
 
   // Sign-out / clear license (for testing or de-activation flows).
   deactivate: () => ipcRenderer.invoke('eorb:deactivate'),
@@ -66,7 +66,7 @@ contextBridge.exposeInMainWorld('eORB', {
   build: {
     productName: 'eORB CEP',
     edition: 'CEP Edition',
-    version: '1.0.0',
+    version: '1.0.1',
     platform: process.platform
   }
 });
