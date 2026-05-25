@@ -43,7 +43,7 @@ jobs:
       - name: Package Windows installer
         run: npm run dist:win
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH: never
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -86,7 +86,7 @@ jobs:
         run: npm run dist:mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH: never
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
