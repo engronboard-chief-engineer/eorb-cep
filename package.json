@@ -56,6 +56,12 @@
       "node_modules/better-sqlite3/**/*"
     ],
     "afterPack": "scripts/after-pack.js",
+    "protocols": [
+      {
+        "name": "eORB CEP",
+        "schemes": ["eorb"]
+      }
+    ],
     "win": {
       "target": [
         {

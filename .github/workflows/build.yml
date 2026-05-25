@@ -2,9 +2,11 @@ name: Build eORB CEP
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-win:
@@ -41,13 +43,13 @@ jobs:
       - name: Package Windows installer
         run: npm run dist:win
 
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: eorb-cep-windows
-          path: |
+          files: |
             dist/eORB CEP-*.exe
-            dist/eORB CEP-*.exe.blockmap
+          draft: false
+          prerelease: false
 
   build-mac:
     runs-on: macos-latest
@@ -84,10 +86,10 @@ jobs:
           # Skip code signing -- we don't have an Apple Developer cert yet.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: Upload dmg
-        uses: actions/upload-artifact@v4
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: eorb-cep-macos
-          path: |
+          files: |
             dist/eORB CEP-*.dmg
-            dist/eORB CEP-*.dmg.blockmap
+          draft: false
+          prerelease: false

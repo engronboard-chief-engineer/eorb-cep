@@ -18,6 +18,36 @@ const UPDATE_FEED_URL = 'https://chiefengineerpro.com/orb/electron-version.json'
 
 const IS_DEV = !app.isPackaged;
 
+// Register eorb:// as the protocol handler for one-click activation links.
+if (!IS_DEV) app.setAsDefaultProtocolClient('eorb');
+
+function parseEorbProtocolUrl(rawUrl) {
+  // Extracts key + email from eorb://activate?key=XXXX&email=user@example.com
+  try {
+    const u = new URL(rawUrl);
+    if (u.pathname !== '//activate' && u.hostname !== 'activate') return null;
+    const key = u.searchParams.get('key');
+    const email = u.searchParams.get('email');
+    if (!key || !email) return null;
+    return { key, email };
+  } catch (_) { return null; }
+}
+
+async function handleProtocolActivation(rawUrl) {
+  const params = parseEorbProtocolUrl(rawUrl);
+  if (!params) return;
+  const result = activation.activate(params.key, userDataDir());
+  if (result.ok && mainWindow) {
+    mainWindow.focus();
+    setTimeout(() => {
+      mainWindow.loadFile(path.join(app.getAppPath(), 'ui', 'index.html'));
+    }, 200);
+  } else if (mainWindow) {
+    mainWindow.focus();
+    mainWindow.webContents.send('eorb:protocol:activate-result', result);
+  }
+}
+
 // Single-instance lock so a second launch focuses the existing window instead
 // of spawning another process (which would try to open the same SQLite file).
 const gotLock = app.requestSingleInstanceLock();
@@ -192,12 +222,19 @@ function registerIpc() {
           res.on('end', () => {
             try {
               const j = JSON.parse(data);
+              const platform = process.platform === 'darwin' ? 'mac' : 'win';
+              const downloadUrl = platform === 'mac'
+                ? (j.downloadUrlMac || j.downloadUrl || null)
+                : (j.downloadUrlWin || j.downloadUrl || null);
               resolve({
                 ok: true,
                 currentVersion: APP_VERSION,
-                latestVersion: j.version || null,
-                downloadUrl: j.downloadUrl || null,
-                notes: j.notes || ''
+                latestVersion: j.version || j.latest || null,
+                downloadUrl,
+                sizeMb: j.sizeMb || null,
+                headline: j.headline || null,
+                notes: j.notes || '',
+                urgency: j.urgency || 'recommended'
               });
             } catch (err) {
               resolve({ ok: false, error: 'invalid feed: ' + err.message });
@@ -216,11 +253,21 @@ function registerIpc() {
   });
 }
 
-app.on('second-instance', () => {
-  if (mainWindow) {
+app.on('second-instance', (_evt, argv) => {
+  // On Windows, the protocol URL arrives as the last argument when a second instance is launched
+  const url = argv.find(a => a.startsWith('eorb://'));
+  if (url) {
+    handleProtocolActivation(url);
+  } else if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   }
+});
+
+// Mac: protocol URL arrives via open-url before app is ready, or after
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  if (url.startsWith('eorb://')) handleProtocolActivation(url);
 });
 
 app.whenReady().then(() => {
