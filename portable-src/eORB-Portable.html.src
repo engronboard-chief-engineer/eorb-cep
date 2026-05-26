@@ -2814,7 +2814,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.3.8 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.3.9 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3507,7 +3507,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.3.8-portable';
+const APP_VERSION = '1.3.9-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3516,6 +3516,14 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.3.9',
+    date: '2026-05-26',
+    title: 'Bilge / OWS preview fix',
+    items: [
+      'Fixed: Preview ORB Entry for D-ows and E-ows (Bilge Water — OWS Overboard) operations now opens the popup correctly. A missing helper function was crashing the preview on the desktop and Portable builds'
+    ]
+  },
   {
     version: '1.3.8',
     date: '2026-05-26',
@@ -4079,6 +4087,7 @@ function tankGroup(type) {
 function fmt2(v) { return (parseFloat(v)||0).toFixed(3); }
 function fmt3(v) { return (parseFloat(v)||0).toFixed(3); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tankLabel(t) { if (!t) return ''; return t.name + (t.frameNo ? ' (' + t.frameNo + ')' : ''); }
 
 function rankAbbr(rank) {
   const MAP = {
