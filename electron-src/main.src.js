@@ -1,7 +1,13 @@
 // main.src.js
-// Electron main process. Validates license + integrity before showing any
-// window. Routes to activation.html on first launch or invalid license,
-// otherwise loads the eORB UI from ui/index.html.
+// Electron main process. Two activation modes:
+//   - PORTABLE (USB-locked, online first-activation with signed agreement):
+//     activated when running from the electron-builder "portable" .exe
+//     (PORTABLE_EXECUTABLE_DIR is set), or when EORB_FORCE_PORTABLE=1.
+//   - CEP INSTALLER (machine-locked, offline-HMAC key):
+//     activated when running from an NSIS install or DMG bundle.
+//
+// In both modes the same eORB simulator UI loads from ui/index.html once
+// activation succeeds; only the gate and the license storage differ.
 
 const { app, BrowserWindow, ipcMain, Menu, dialog, shell, session } = require('electron');
 const path = require('path');
@@ -11,18 +17,53 @@ const https = require('https');
 const activation = require('./security/activation');
 const integrity = require('./security/integrity');
 const machine = require('./security/machine');
+const usb = require('./security/usb');
+const agreement = require('./agreement');
 const db = require('./db');
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.3.6-portable-electron';
 const UPDATE_FEED_URL = 'https://chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;
 
-// Register eorb:// as the protocol handler for one-click activation links.
-if (!IS_DEV) app.setAsDefaultProtocolClient('eorb');
+// Portable detection: electron-builder's portable target sets
+// PORTABLE_EXECUTABLE_DIR to the runtime extract dir. The actual USB-root
+// path is the parent of the .exe file. EORB_FORCE_PORTABLE=1 lets us test
+// the portable code path in dev.
+function isPortableBuild() {
+  if (process.env.EORB_FORCE_PORTABLE === '1') return true;
+  if (process.env.PORTABLE_EXECUTABLE_DIR) return true;
+  return false;
+}
+
+// USB root resolution:
+//   - In a true portable build: directory containing the launched .exe.
+//   - In dev with EORB_FORCE_PORTABLE=1: a sandbox dir under the project so
+//     we can test write/read without owning a USB stick.
+function resolveUsbRoot() {
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    // For electron-builder portable: PORTABLE_EXECUTABLE_DIR is the user-
+    // visible directory where the .exe lives (USB root). Files we write
+    // there persist; the temporary asar extraction is elsewhere.
+    return process.env.PORTABLE_EXECUTABLE_DIR;
+  }
+  if (process.env.EORB_FORCE_PORTABLE === '1') {
+    const sandbox = path.join(app.getPath('userData'), 'portable-sandbox');
+    if (!fs.existsSync(sandbox)) fs.mkdirSync(sandbox, { recursive: true });
+    return sandbox;
+  }
+  // Not portable -- fall back to userData so the installer build still works.
+  return app.getPath('userData');
+}
+
+function resolveUsbDataDir(usbRoot) {
+  return isPortableBuild() ? path.join(usbRoot, 'eorb-data') : usbRoot;
+}
+
+// Register eorb:// for one-click activation in the installer build.
+if (!IS_DEV && !isPortableBuild()) app.setAsDefaultProtocolClient('eorb');
 
 function parseEorbProtocolUrl(rawUrl) {
-  // Extracts key + email from eorb://activate?key=XXXX&email=user@example.com
   try {
     const u = new URL(rawUrl);
     if (u.pathname !== '//activate' && u.hostname !== 'activate') return null;
@@ -34,9 +75,12 @@ function parseEorbProtocolUrl(rawUrl) {
 }
 
 async function handleProtocolActivation(rawUrl) {
+  // Portable build doesn't use eorb:// links (its flow is the signed-agreement
+  // wizard). Ignore the protocol entirely there.
+  if (isPortableBuild()) return;
   const params = parseEorbProtocolUrl(rawUrl);
   if (!params) return;
-  const result = activation.activate(params.key, params.email, userDataDir());
+  const result = activation.activate(params.key, params.email, app.getPath('userData'));
   if (result.ok && mainWindow) {
     mainWindow.focus();
     setTimeout(() => {
@@ -48,8 +92,6 @@ async function handleProtocolActivation(rawUrl) {
   }
 }
 
-// Single-instance lock so a second launch focuses the existing window instead
-// of spawning another process (which would try to open the same SQLite file).
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -57,21 +99,16 @@ if (!gotLock) {
 }
 
 let mainWindow = null;
-
-function userDataDir() {
-  return app.getPath('userData');
-}
+let _usbRoot = null;
+let _usbHash = null;
 
 function showFatal(title, message) {
-  try {
-    dialog.showErrorBox(title, message);
-  } catch (_) { /* may run before app is ready */ }
+  try { dialog.showErrorBox(title, message); } catch (_) {}
 }
 
 function blockDevToolsAccelerators(win) {
-  // Defensive against F12 / Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+R / Ctrl+Shift+R / Ctrl+U.
   win.webContents.on('before-input-event', (event, input) => {
-    if (IS_DEV) return;  // allow during dev
+    if (IS_DEV) return;
     const k = (input.key || '').toLowerCase();
     const ctrl = input.control || input.meta;
     const shift = input.shift;
@@ -87,8 +124,6 @@ function blockContextMenu(win) {
 
 function blockNavigation(win) {
   win.webContents.on('will-navigate', (e, url) => {
-    // Allow only file:// loads within our app dir. Anything else opens
-    // externally in the user's browser (license update links etc).
     if (!url.startsWith('file://')) {
       e.preventDefault();
       shell.openExternal(url).catch(() => {});
@@ -116,7 +151,7 @@ function createMainWindow(initialPage) {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,            // preload uses Node (better-sqlite3 via IPC, fs); sandbox would block it
+      sandbox: false,
       devTools: IS_DEV,
       spellcheck: false
     }
@@ -137,8 +172,6 @@ function createMainWindow(initialPage) {
 }
 
 function applyCSP() {
-  // Tight CSP for renderer. file:// inline scripts in the eORB UI need
-  // 'unsafe-inline' for <script> blocks. No remote script/style allowed.
   session.defaultSession.webRequest.onHeadersReceived((details, cb) => {
     cb({
       responseHeaders: {
@@ -156,50 +189,54 @@ function applyCSP() {
 }
 
 function registerIpc() {
-  // Boot bundle: returns the license (decrypted snapshot of safe fields) plus
-  // a hydrated copy of the SQLite KV store. Single sync call from preload.
+  // Boot bundle (sync). Returns license snapshot + hydrated KV store.
   ipcMain.on('eorb:boot', (event) => {
     let lic = null;
     try {
-      const full = activation.loadLicense(userDataDir());
+      const full = isPortableBuild()
+        ? activation.loadPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash)
+        : activation.loadLicense(app.getPath('userData'));
       if (full) {
         lic = {
           customer_id: full.customer_id,
           email: full.email,
+          full_name: full.full_name || null,
+          country: full.country || null,
+          rank: full.rank || null,
+          company: full.company || null,
+          vessel: full.vessel || null,
           activation_date: full.activation_date,
-          build_id: full.build_id
+          build_id: full.build_id,
+          license_id: full.license_id || null,
+          edition: full.edition || 'cep'
         };
       }
     } catch (_) { lic = null; }
     let store = {};
     try {
-      db.init(userDataDir());
-      store = db.getAll(userDataDir());
+      const dataDir = resolveUsbDataDir(_usbRoot);
+      db.init(dataDir);
+      store = db.getAll(dataDir);
     } catch (err) {
       console.error('[main] boot store hydrate failed:', err.message);
     }
-    event.returnValue = { license: lic, store };
+    event.returnValue = { license: lic, store, isPortable: isPortableBuild() };
   });
 
+  // --- CEP installer activation (legacy, machine-locked) ---
   ipcMain.handle('eorb:activate', async (_evt, payload) => {
-    // payload may be a string (legacy) or { key, email } (current).
-    let key, email;
-    if (payload && typeof payload === 'object') {
-      key = payload.key;
-      email = payload.email;
-    } else {
-      key = payload;
-      email = '';
+    if (isPortableBuild()) {
+      return { ok: false, error: 'wrong_flow_for_portable_build' };
     }
+    let key, email;
+    if (payload && typeof payload === 'object') { key = payload.key; email = payload.email; }
+    else { key = payload; email = ''; }
     try {
-      const result = activation.activate(key, email, userDataDir());
-      if (result.ok) {
-        // Reload window into the eORB UI.
-        if (mainWindow) {
-          setTimeout(() => {
-            mainWindow.loadFile(path.join(app.getAppPath(), 'ui', 'index.html'));
-          }, 200);
-        }
+      const result = activation.activate(key, email, app.getPath('userData'));
+      if (result.ok && mainWindow) {
+        setTimeout(() => {
+          mainWindow.loadFile(path.join(app.getAppPath(), 'ui', 'index.html'));
+        }, 200);
       }
       return result;
     } catch (err) {
@@ -208,20 +245,68 @@ function registerIpc() {
   });
 
   ipcMain.handle('eorb:deactivate', async () => {
-    try { activation.clearLicense(userDataDir()); return { ok: true }; }
-    catch (err) { return { ok: false, error: err.message }; }
+    try {
+      if (isPortableBuild()) {
+        activation.clearPortableLicense(resolveUsbDataDir(_usbRoot));
+      } else {
+        activation.clearLicense(app.getPath('userData'));
+      }
+      return { ok: true };
+    } catch (err) { return { ok: false, error: err.message }; }
   });
 
+  // --- Portable: first-activation agreement ceremony ---
+  ipcMain.handle('eorb:agreement:submit', async (_evt, payload) => {
+    if (!isPortableBuild()) {
+      return { ok: false, error: 'agreement_flow_unavailable' };
+    }
+    try {
+      const res = await agreement.submitAgreement({
+        usbRoot: _usbRoot,
+        identity: payload && payload.identity,
+        agreement: payload && payload.agreement,
+        signatureDataUrl: payload && payload.signatureDataUrl,
+        clientVersion: APP_VERSION
+      });
+      if (res.ok) {
+        // Refresh USB hash + redirect cached license on next boot read.
+        try { _usbHash = (usb.computeUsbHash(_usbRoot).hash) || _usbHash; } catch (_) {}
+      }
+      return res;
+    } catch (err) {
+      return { ok: false, error: 'exception', detail: err.message };
+    }
+  });
+
+  ipcMain.handle('eorb:agreement:openApp', async () => {
+    if (!mainWindow) return { ok: false, error: 'no_window' };
+    try {
+      await mainWindow.loadFile(path.join(app.getAppPath(), 'ui', 'index.html'));
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('eorb:usb:hash', async () => {
+    if (!isPortableBuild()) return { ok: false, error: 'not_portable' };
+    const r = usb.computeUsbHash(_usbRoot);
+    if (!r.ok) return r;
+    return { ok: true, hash_short: r.hash.slice(0, 12) };
+  });
+
+  // --- KV store (DB writes routed to the resolved data dir) ---
   ipcMain.on('eorb:store:set', (_evt, payload) => {
-    try { db.set(userDataDir(), payload.k, payload.v); } catch (_) {}
+    try { db.set(resolveUsbDataDir(_usbRoot), payload.k, payload.v); } catch (_) {}
   });
   ipcMain.on('eorb:store:remove', (_evt, payload) => {
-    try { db.remove(userDataDir(), payload.k); } catch (_) {}
+    try { db.remove(resolveUsbDataDir(_usbRoot), payload.k); } catch (_) {}
   });
   ipcMain.on('eorb:store:clear', () => {
-    try { db.clear(userDataDir()); } catch (_) {}
+    try { db.clear(resolveUsbDataDir(_usbRoot)); } catch (_) {}
   });
 
+  // --- Update check (unchanged) ---
   ipcMain.handle('eorb:updates:check', async () => {
     return await new Promise((resolve) => {
       try {
@@ -263,7 +348,6 @@ function registerIpc() {
 }
 
 app.on('second-instance', (_evt, argv) => {
-  // On Windows, the protocol URL arrives as the last argument when a second instance is launched
   const url = argv.find(a => a.startsWith('eorb://'));
   if (url) {
     handleProtocolActivation(url);
@@ -273,7 +357,6 @@ app.on('second-instance', (_evt, argv) => {
   }
 });
 
-// Mac: protocol URL arrives via open-url before app is ready, or after
 app.on('open-url', (event, url) => {
   event.preventDefault();
   if (url.startsWith('eorb://')) handleProtocolActivation(url);
@@ -285,24 +368,45 @@ app.whenReady().then(() => {
     const res = integrity.verify(app.getAppPath());
     if (!res.ok) {
       showFatal('Integrity violation detected',
-        'eORB CEP failed its integrity check and will now exit.\n\n' +
+        'eORB failed its integrity check and will now exit.\n\n' +
         'Reason: ' + res.reason + '\n\n' +
-        'Please reinstall from the original distribution.');
+        'Please re-download from chiefengineerpro.com.');
       app.quit();
       return;
     }
   }
 
   applyCSP();
-  registerIpc();
 
-  // 2. Open SQLite (lazy; just ensures dir exists).
-  try { db.init(userDataDir()); } catch (err) {
-    console.error('[main] db init failed:', err.message);
+  // 2. Resolve USB root + hash (portable build only).
+  _usbRoot = resolveUsbRoot();
+  if (isPortableBuild()) {
+    const r = usb.computeUsbHash(_usbRoot);
+    if (r.ok) {
+      _usbHash = r.hash;
+    } else {
+      showFatal('USB drive not detected',
+        'eORB Pro Portable must run from a USB drive.\n\n' +
+        'Reason: ' + r.error + '\n\n' +
+        'Copy eORB.exe to a real USB stick and launch it from there.');
+      app.quit();
+      return;
+    }
   }
 
-  // 3. Route to activation or main UI based on license status.
-  const hasLic = activation.hasValidLicense(userDataDir());
+  registerIpc();
+
+  // 3. Open SQLite at the resolved data dir.
+  try { db.init(resolveUsbDataDir(_usbRoot)); }
+  catch (err) { console.error('[main] db init failed:', err.message); }
+
+  // 4. Route to activation or main UI.
+  let hasLic;
+  if (isPortableBuild()) {
+    hasLic = activation.hasValidPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash);
+  } else {
+    hasLic = activation.hasValidLicense(app.getPath('userData'));
+  }
   mainWindow = createMainWindow(hasLic ? 'index.html' : 'activation.html');
 });
 
@@ -313,7 +417,12 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    const hasLic = activation.hasValidLicense(userDataDir());
+    let hasLic;
+    if (isPortableBuild()) {
+      hasLic = activation.hasValidPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash);
+    } else {
+      hasLic = activation.hasValidLicense(app.getPath('userData'));
+    }
     mainWindow = createMainWindow(hasLic ? 'index.html' : 'activation.html');
   }
 });

@@ -1,45 +1,45 @@
 // preload.src.js
-// Bridge between the renderer (the existing eORB HTML/JS UI) and the Electron
-// main process. Runs with Node access but in an isolated context; the only
-// things the renderer can call are what contextBridge exposes here.
-//
-// Renderer-side surface:
-//   window.eORB.license               -> object | null  (resolved at preload time)
-//   window.eORB.activate(key, email)  -> Promise<{ok, error?}>
-//   window.eORB.store                 -> sync KV (hydrated boot, async writes)
-//   window.eORB.updates.check         -> Promise<{currentVersion, latestVersion, ...}>
+// Bridge between the renderer (eORB UI + activation wizard) and main process.
+// Runs with Node access but in an isolated context; only contextBridge.exposeInMainWorld
+// keys are reachable from the renderer.
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-// One-shot synchronous hydrate of the SQLite store at preload time. The
-// existing UI's localStorage calls in early <script> blocks will be served
-// from this snapshot. Subsequent writes are also mirrored back to SQLite
-// (handled by ui/app.src.js which the HTML loads first).
 let _bootStore = {};
 let _license = null;
+let _isPortable = false;
 try {
   const boot = ipcRenderer.sendSync('eorb:boot');
   if (boot && typeof boot === 'object') {
     _bootStore = boot.store || {};
     _license = boot.license || null;
+    _isPortable = !!boot.isPortable;
   }
 } catch (err) {
-  // Boot IPC failed -- preload should still load so the UI can show an error.
   console.error('[preload] boot IPC failed:', err && err.message);
 }
 
 contextBridge.exposeInMainWorld('eORB', {
-  // License info accessible synchronously by the renderer at any time.
   license: _license,
 
-  // Activation: validates the (key, email) pair in main, writes encrypted license.dat.
-  activate: (key, email) => ipcRenderer.invoke('eorb:activate', { key: String(key || ''), email: String(email || '') }),
-
-  // Sign-out / clear license (for testing or de-activation flows).
+  // CEP-installer activation (legacy, machine-locked).
+  activate: (key, email) => ipcRenderer.invoke('eorb:activate', {
+    key: String(key || ''),
+    email: String(email || '')
+  }),
   deactivate: () => ipcRenderer.invoke('eorb:deactivate'),
 
-  // Synchronous-feeling store. Reads come from the boot snapshot in memory;
-  // writes go to main asynchronously (fire-and-forget; SQLite is fast).
+  // Portable first-activation ceremony.
+  agreement: {
+    submit: (payload) => ipcRenderer.invoke('eorb:agreement:submit', payload),
+    openApp: () => ipcRenderer.invoke('eorb:agreement:openApp')
+  },
+
+  // USB hash (short prefix only -- never the full hash).
+  usb: {
+    hash: () => ipcRenderer.invoke('eorb:usb:hash')
+  },
+
   store: {
     getAll: () => Object.assign({}, _bootStore),
     get: (k) => (k in _bootStore ? _bootStore[k] : null),
@@ -62,11 +62,11 @@ contextBridge.exposeInMainWorld('eORB', {
     openUrl: (url) => ipcRenderer.invoke('eorb:updates:openUrl', String(url))
   },
 
-  // Identifying info (no secrets) for the renderer to display in About box.
   build: {
-    productName: 'eORB CEP',
-    edition: 'CEP Edition',
-    version: '1.0.1',
-    platform: process.platform
+    productName: _isPortable ? 'eORB Pro Portable' : 'eORB CEP',
+    edition: _isPortable ? 'Pro Portable Edition' : 'CEP Edition',
+    version: '1.3.6-portable-electron',
+    platform: process.platform,
+    isPortable: _isPortable
   }
 });

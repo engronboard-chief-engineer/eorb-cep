@@ -136,4 +136,21 @@ if (existsSync(SHIM_REAL_SRC)) {
   console.log('[prepare-ui] shim present at', SHIM_SRC, '(no .src found, using existing)');
 }
 
+// Stage the activation wizard from .src.html -> activation.html. The wizard
+// is hand-edited in source; the build copies it through so the integrity
+// manifest hashes the same content the obfuscator does NOT touch (it's a
+// .html file). If a hand-written activation.html already exists alongside
+// the .src (legacy CEP wizard), the .src wins.
+{
+  const wizardSrc = join(UI_DIR, 'activation.html.src');
+  const wizardOut = join(UI_DIR, 'activation.html');
+  if (existsSync(wizardSrc)) {
+    const wizardHtml = readFileSync(wizardSrc, 'utf8');
+    writeFileSync(wizardOut, wizardHtml, 'utf8');
+    console.log(`[prepare-ui] staged activation.html.src -> activation.html (${wizardHtml.length} B)`);
+  } else {
+    console.log('[prepare-ui] note: no activation.html.src found; keeping existing activation.html');
+  }
+}
+
 console.log('[prepare-ui] done.');

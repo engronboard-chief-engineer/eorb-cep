@@ -8,12 +8,14 @@
 // whatever JSON shape it stores; SQLite is just the durable backing store.
 
 const path = require('path');
+const fs = require('fs');
 let _db = null;
 
-function openDb(userDataDir) {
+function openDb(dataDir) {
   if (_db) return _db;
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   const Database = require('better-sqlite3');
-  const dbPath = path.join(userDataDir, 'database.db');
+  const dbPath = path.join(dataDir, 'database.db');
   _db = new Database(dbPath);
   _db.pragma('journal_mode = WAL');
   _db.exec('CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL)');

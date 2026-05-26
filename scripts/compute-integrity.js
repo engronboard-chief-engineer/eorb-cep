@@ -18,8 +18,10 @@ const TARGETS = [
   'electron/main.js',
   'electron/preload.js',
   'electron/db.js',
+  'electron/agreement.js',
   'electron/security/crypto.js',
   'electron/security/machine.js',
+  'electron/security/usb.js',
   'electron/security/activation.js',
   'electron/security/integrity.js'
 ];

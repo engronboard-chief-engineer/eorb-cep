@@ -48,6 +48,7 @@ jobs:
         with:
           files: |
             dist/eORB CEP-*.exe
+            dist/eORB-Pro-Portable-*.exe
           draft: false
           prerelease: false
 
@@ -90,5 +91,6 @@ jobs:
         with:
           files: |
             dist/eORB CEP-*.dmg
+            dist/eORB CEP-*.zip
           draft: false
           prerelease: false
