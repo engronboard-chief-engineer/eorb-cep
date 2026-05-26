@@ -2814,7 +2814,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.3.7 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.3.8 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3507,7 +3507,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.3.7-portable';
+const APP_VERSION = '1.3.8-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3516,6 +3516,15 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.3.8',
+    date: '2026-05-26',
+    title: 'Preview reliability fix',
+    items: [
+      'Preview ORB Entry is now wrapped in a safety check — if anything blocks the popup, you will see a clear on-screen message instead of nothing',
+      'Same fix applied to PWA, Portable, and the desktop app (eORB CEP / Pro Portable)'
+    ]
+  },
   {
     version: '1.3.7',
     date: '2026-05-26',
@@ -7446,6 +7455,17 @@ function owsValveState() {
 // WIZARD PREVIEW
 // ============================================================
 function wizPreview() {
+  try {
+    return _wizPreviewImpl();
+  } catch (err) {
+    try {
+      alert('Preview failed: ' + (err && err.message ? err.message : String(err)) + '\n\nPlease screenshot this and send to support.');
+      // eslint-disable-next-line no-console
+      console.error('[wizPreview]', err);
+    } catch (_) {}
+  }
+}
+function _wizPreviewImpl() {
   const op = OPERATIONS.find(o => o.id === wiz.opId);
   const tanks = getTanks();
   const el = document.getElementById('wiz-preview-area');

@@ -65,7 +65,7 @@ contextBridge.exposeInMainWorld('eORB', {
   build: {
     productName: _isPortable ? 'eORB Pro Portable' : 'eORB CEP',
     edition: _isPortable ? 'Pro Portable Edition' : 'CEP Edition',
-    version: '1.3.7-portable-electron',
+    version: '1.3.8-portable-electron',
     platform: process.platform,
     isPortable: _isPortable
   }
