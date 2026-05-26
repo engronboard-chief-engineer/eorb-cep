@@ -21,7 +21,13 @@ const usb = require('./security/usb');
 const agreement = require('./agreement');
 const db = require('./db');
 
-const APP_VERSION = '1.3.9-portable-electron';
+// electron-updater is optional at dev-time (not installed in CI for the
+// renderer) but required for packaged NSIS auto-update. Load defensively
+// so dev builds without it still boot.
+let autoUpdater = null;
+try { autoUpdater = require('electron-updater').autoUpdater; } catch (_) {}
+
+const APP_VERSION = '1.4.0-portable-electron';
 const UPDATE_FEED_URL = 'https://www.chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;
@@ -307,9 +313,81 @@ function registerIpc() {
   });
 
   // --- Update check ---
-  // Follows up to 3 redirects so the IPC handler survives server-side
-  // chiefengineerpro.com -> www.chiefengineerpro.com 307s (v1.3.5 didn't).
+  // Two paths:
+  //   1. NSIS installer build (eORB CEP): electron-updater pulls latest.yml
+  //      from GitHub Releases on engronboard-chief-engineer/eorb-cep,
+  //      downloads in-app, and silently runs the new installer on quit.
+  //   2. Portable build (eORB Pro Portable): no installer to run, so we
+  //      keep the legacy fetch-feed + open-browser flow. Users must manually
+  //      replace the .exe on their USB stick.
+  //
+  // Both paths report through the same IPC contract so the renderer banner
+  // doesn't care which build it's in.
+  const _useAutoUpdater = !!autoUpdater && !isPortableBuild() && !IS_DEV;
+
+  if (_useAutoUpdater) {
+    autoUpdater.autoDownload = false;        // user clicks "Update" first
+    autoUpdater.autoInstallOnAppQuit = false; // we invoke quitAndInstall ourselves
+    autoUpdater.allowDowngrade = false;
+    try { autoUpdater.logger = null; } catch (_) {}
+
+    const _emit = (channel, payload) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try { mainWindow.webContents.send(channel, payload); } catch (_) {}
+      }
+    };
+
+    autoUpdater.on('update-available', (info) => {
+      _emit('eorb:updates:event', { type: 'available', version: info && info.version });
+    });
+    autoUpdater.on('update-not-available', () => {
+      _emit('eorb:updates:event', { type: 'not-available' });
+    });
+    autoUpdater.on('download-progress', (p) => {
+      _emit('eorb:updates:event', {
+        type: 'progress',
+        percent: p && typeof p.percent === 'number' ? p.percent : 0,
+        bytesPerSecond: p && p.bytesPerSecond || 0,
+        transferred: p && p.transferred || 0,
+        total: p && p.total || 0
+      });
+    });
+    autoUpdater.on('update-downloaded', (info) => {
+      _emit('eorb:updates:event', { type: 'downloaded', version: info && info.version });
+    });
+    autoUpdater.on('error', (err) => {
+      _emit('eorb:updates:event', {
+        type: 'error',
+        message: (err && err.message) || String(err || 'unknown')
+      });
+    });
+  }
+
+  // Renderer asks: is there a new version? Returns the same shape as the
+  // legacy feed-fetch so the banner UI is unchanged. For NSIS we also note
+  // autoUpdate=true so the banner knows to swap "Open browser" -> "Update".
   ipcMain.handle('eorb:updates:check', async () => {
+    if (_useAutoUpdater) {
+      try {
+        const res = await autoUpdater.checkForUpdates();
+        const latest = res && res.updateInfo && res.updateInfo.version;
+        return {
+          ok: true,
+          autoUpdate: true,
+          currentVersion: APP_VERSION,
+          latestVersion: latest || null,
+          sizeMb: null,
+          headline: res && res.updateInfo && res.updateInfo.releaseName || null,
+          notes: res && res.updateInfo && res.updateInfo.releaseNotes || '',
+          urgency: 'recommended'
+        };
+      } catch (err) {
+        return { ok: false, error: err.message || String(err) };
+      }
+    }
+
+    // Portable path: fetch the legacy JSON feed and report the download URL
+    // for the user to open in their browser (manual replace on USB).
     return await new Promise((resolve) => {
       const fetchFeed = (url, hops) => {
         try {
@@ -330,6 +408,7 @@ function registerIpc() {
                   : (j.downloadUrlWin || j.downloadUrl || null);
                 resolve({
                   ok: true,
+                  autoUpdate: false,
                   currentVersion: APP_VERSION,
                   latestVersion: j.version || j.latest || null,
                   downloadUrl,
@@ -349,6 +428,32 @@ function registerIpc() {
       };
       fetchFeed(UPDATE_FEED_URL, 0);
     });
+  });
+
+  // Start the in-app download. NSIS only — portable can't auto-install.
+  ipcMain.handle('eorb:updates:download', async () => {
+    if (!_useAutoUpdater) return { ok: false, error: 'auto_update_unavailable' };
+    try {
+      await autoUpdater.downloadUpdate();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  });
+
+  // Quit, run the installer silently, relaunch into the new version.
+  // The two booleans: isSilent=true, isForceRunAfter=true.
+  ipcMain.handle('eorb:updates:install', async () => {
+    if (!_useAutoUpdater) return { ok: false, error: 'auto_update_unavailable' };
+    try {
+      setImmediate(() => {
+        try { autoUpdater.quitAndInstall(true, true); }
+        catch (err) { console.error('[updates] quitAndInstall failed:', err.message); }
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
   });
 
   ipcMain.handle('eorb:updates:openUrl', async (_evt, url) => {

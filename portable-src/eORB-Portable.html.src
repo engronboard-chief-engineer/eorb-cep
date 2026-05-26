@@ -392,6 +392,25 @@ body {
   text-underline-offset: 2px;
 }
 #orb-update-dismiss:hover { color: var(--text); }
+#orb-update-progress {
+  display: none; align-items: center; gap: 10px;
+  min-width: 240px;
+}
+#orb-update-progress.show { display: flex; }
+#orb-update-progress-track {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: rgba(246,173,85,0.18);
+  overflow: hidden;
+}
+#orb-update-progress-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--amber), #f8c860);
+  transition: width 0.2s ease;
+}
+#orb-update-progress-label {
+  color: var(--amber); font-size: 11px; font-weight: 600;
+  white-space: nowrap; min-width: 56px; text-align: right;
+}
 
 /* ============================================================
    APP SHELL — SIDEBAR LAYOUT
@@ -2689,6 +2708,10 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
     <span id="orb-update-size"></span>
   </div>
   <div id="orb-update-actions">
+    <div id="orb-update-progress" aria-hidden="true">
+      <div id="orb-update-progress-track"><div id="orb-update-progress-bar"></div></div>
+      <span id="orb-update-progress-label">0%</span>
+    </div>
     <a id="orb-update-link" href="#" onclick="return false;">Update Now</a>
     <button type="button" id="orb-update-dismiss" onclick="dismissUpdateBanner()" aria-label="Dismiss">Maybe later</button>
   </div>
@@ -2814,7 +2837,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.3.9 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.0 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3507,7 +3530,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.3.9-portable';
+const APP_VERSION = '1.4.0-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3516,6 +3539,16 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.0',
+    date: '2026-05-27',
+    title: 'One-click auto-update (desktop)',
+    items: [
+      'New: eORB CEP installer now updates itself. Click Update Now and the new version downloads in-app with a progress bar, then Restart & Install runs silently — no re-download, no installer wizard, no manual steps',
+      'Improved: Update banner now shows live download progress and a Restart button instead of opening the browser',
+      'Note: Pro Portable Edition still uses the manual flow (replace the .exe on your USB stick) because portable apps can\'t self-install'
+    ]
+  },
   {
     version: '1.3.9',
     date: '2026-05-26',
@@ -9058,6 +9091,101 @@ function _verNum(v) {
   return parseInt(m[1], 10) * 10000 + parseInt(m[2], 10) * 100 + parseInt(m[3], 10);
 }
 
+// Auto-update state for the in-banner progress + Restart button.
+// Only meaningful when result.autoUpdate === true (NSIS / CEP installer build).
+var _updateState = 'idle'; // idle | downloading | downloaded | error
+var _autoUpdateBound = false;
+
+function _setUpdateLink(label, handler, busy) {
+  var link = document.getElementById('orb-update-link');
+  if (!link) return;
+  link.textContent = label;
+  link.onclick = function(e) {
+    e.preventDefault();
+    if (typeof handler === 'function') handler();
+  };
+  if (busy) {
+    link.style.opacity = '0.5';
+    link.style.pointerEvents = 'none';
+  } else {
+    link.style.opacity = '';
+    link.style.pointerEvents = '';
+  }
+}
+
+function _setUpdateProgress(percent) {
+  var wrap = document.getElementById('orb-update-progress');
+  var bar = document.getElementById('orb-update-progress-bar');
+  var label = document.getElementById('orb-update-progress-label');
+  if (!wrap || !bar || !label) return;
+  wrap.classList.add('show');
+  wrap.setAttribute('aria-hidden', 'false');
+  var p = Math.max(0, Math.min(100, Math.round(percent || 0)));
+  bar.style.width = p + '%';
+  label.textContent = p + '%';
+}
+
+function _hideUpdateProgress() {
+  var wrap = document.getElementById('orb-update-progress');
+  if (!wrap) return;
+  wrap.classList.remove('show');
+  wrap.setAttribute('aria-hidden', 'true');
+}
+
+function _bindAutoUpdateEvents() {
+  if (_autoUpdateBound) return;
+  if (!(window.eORB && window.eORB.updates && window.eORB.updates.onEvent)) return;
+  _autoUpdateBound = true;
+  window.eORB.updates.onEvent(function(evt) {
+    if (!evt || !evt.type) return;
+    if (evt.type === 'progress') {
+      _updateState = 'downloading';
+      _setUpdateProgress(evt.percent || 0);
+      _setUpdateLink('Downloading...', null, true);
+      return;
+    }
+    if (evt.type === 'downloaded') {
+      _updateState = 'downloaded';
+      _hideUpdateProgress();
+      var notes = document.getElementById('orb-update-notes');
+      if (notes) notes.textContent = 'Download complete -- restart to install. Your data is safe.';
+      _setUpdateLink('Restart & Install', function() {
+        _setUpdateLink('Restarting...', null, true);
+        try { window.eORB.updates.install(); } catch(_) {}
+      });
+      return;
+    }
+    if (evt.type === 'error') {
+      _updateState = 'error';
+      _hideUpdateProgress();
+      var n = document.getElementById('orb-update-notes');
+      if (n) n.textContent = 'Update failed: ' + (evt.message || 'unknown error') + '. Try again or download manually.';
+      _setUpdateLink('Retry Download', _startAutoDownload);
+    }
+  });
+}
+
+function _startAutoDownload() {
+  if (!(window.eORB && window.eORB.updates && window.eORB.updates.download)) return;
+  _updateState = 'downloading';
+  _setUpdateLink('Starting...', null, true);
+  _setUpdateProgress(0);
+  window.eORB.updates.download().then(function(res) {
+    if (res && res.ok) return;
+    _updateState = 'error';
+    _hideUpdateProgress();
+    var n = document.getElementById('orb-update-notes');
+    if (n) n.textContent = 'Update failed to start: ' + ((res && res.error) || 'unknown error');
+    _setUpdateLink('Retry Download', _startAutoDownload);
+  }).catch(function(err) {
+    _updateState = 'error';
+    _hideUpdateProgress();
+    var n = document.getElementById('orb-update-notes');
+    if (n) n.textContent = 'Update failed to start: ' + (err && err.message || err);
+    _setUpdateLink('Retry Download', _startAutoDownload);
+  });
+}
+
 function _showUpdateBanner(info, isElectron) {
   var banner = document.getElementById('orb-update-banner');
   var headline = document.getElementById('orb-update-headline');
@@ -9074,7 +9202,15 @@ function _showUpdateBanner(info, isElectron) {
     (edition + ' v' + ver + ' is available -- update now for the latest logic improvements.');
   notes.textContent = info.notes || '';
   size.textContent = mb ? 'Download size: ' + mb + ' -- quick install, no data loss.' : '';
-  if (info.downloadUrl) {
+
+  // Auto-update path (NSIS only): click "Update Now" -> download in-app ->
+  // progress bar -> "Restart & Install" -> silent install + relaunch.
+  if (info.autoUpdate && window.eORB && window.eORB.updates && window.eORB.updates.download) {
+    _bindAutoUpdateEvents();
+    _setUpdateLink('Update Now', _startAutoDownload);
+  } else if (info.downloadUrl) {
+    // Manual path (Portable / browser): open download URL externally.
+    link.textContent = 'Download Update';
     link.onclick = function(e) {
       e.preventDefault();
       if (isElectron && window.eORB && window.eORB.updates && window.eORB.updates.openUrl) {
@@ -9104,6 +9240,7 @@ async function checkForUpdate() {
           headline: result.headline || null,
           notes: result.notes || '',
           downloadUrl: result.downloadUrl || null,
+          autoUpdate: !!result.autoUpdate,
           urgency: result.urgency || 'recommended'
         }, true);
       }

@@ -59,13 +59,21 @@ contextBridge.exposeInMainWorld('eORB', {
 
   updates: {
     check: () => ipcRenderer.invoke('eorb:updates:check'),
-    openUrl: (url) => ipcRenderer.invoke('eorb:updates:openUrl', String(url))
+    download: () => ipcRenderer.invoke('eorb:updates:download'),
+    install: () => ipcRenderer.invoke('eorb:updates:install'),
+    openUrl: (url) => ipcRenderer.invoke('eorb:updates:openUrl', String(url)),
+    onEvent: (cb) => {
+      if (typeof cb !== 'function') return function noop() {};
+      const handler = (_evt, payload) => { try { cb(payload); } catch (_) {} };
+      ipcRenderer.on('eorb:updates:event', handler);
+      return function off() { ipcRenderer.removeListener('eorb:updates:event', handler); };
+    }
   },
 
   build: {
     productName: _isPortable ? 'eORB Pro Portable' : 'eORB CEP',
     edition: _isPortable ? 'Pro Portable Edition' : 'CEP Edition',
-    version: '1.3.9-portable-electron',
+    version: '1.4.0-portable-electron',
     platform: process.platform,
     isPortable: _isPortable
   }
