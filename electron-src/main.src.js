@@ -21,7 +21,7 @@ const usb = require('./security/usb');
 const agreement = require('./agreement');
 const db = require('./db');
 
-const APP_VERSION = '1.3.6-portable-electron';
+const APP_VERSION = '1.3.7-portable-electron';
 const UPDATE_FEED_URL = 'https://www.chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;

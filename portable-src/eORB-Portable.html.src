@@ -2814,7 +2814,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.3.6 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.3.7 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3443,6 +3443,20 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 </div>
 
 <!-- ============================================================
+     MODAL: ORB ENTRY PREVIEW (popup so Confirm button is always reachable)
+     ============================================================ -->
+<div class="modal-overlay hidden" id="preview-modal">
+  <div class="modal-box wide" style="display:flex;flex-direction:column;overflow:hidden;">
+    <div class="modal-head" style="flex:0 0 auto;">
+      <h3>ORB Entry Preview — Educational Sample</h3>
+      <button class="modal-close" onclick="closeModal('preview-modal')">&times;</button>
+    </div>
+    <div class="modal-body" id="preview-modal-body" style="flex:1 1 auto;overflow-y:auto;min-height:0;"></div>
+    <div class="modal-foot" id="preview-modal-foot" style="flex:0 0 auto;"></div>
+  </div>
+</div>
+
+<!-- ============================================================
      MODAL: BOOK PREVIEW (Electronic Record Book View)
      ============================================================ -->
 <div class="modal-overlay hidden" id="book-modal" style="align-items:center;justify-content:center;padding:16px;">
@@ -3493,7 +3507,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.3.6-portable';
+const APP_VERSION = '1.3.7-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3502,6 +3516,15 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.3.7',
+    date: '2026-05-26',
+    title: 'Preview opens as a popup',
+    items: [
+      'Preview ORB Entry now opens in a popup window so the Confirm with Signature button is always visible — fixes the desktop bug where the button stayed below the fold even after the v1.3.6 scroll fix',
+      'Update check now follows redirects, so future in-app update banners reach you reliably'
+    ]
+  },
   {
     version: '1.3.6',
     date: '2026-05-26',
@@ -8154,9 +8177,14 @@ function wizPreview() {
     </div>`;
   }
 
-  el.innerHTML = `
-    <div style="max-width:720px;margin-top:16px;">
-      <div class="section-title">ORB Entry Preview — Educational Sample</div>
+  // Render into the popup modal. The modal has its own scrollable body and
+  // a sticky footer so the Confirm button is ALWAYS reachable no matter how
+  // long the preview content is — fixes the desktop-scroll bug where the
+  // entry-form-panel scroll context hid the button below the fold.
+  const modalBody = document.getElementById('preview-modal-body');
+  const modalFoot = document.getElementById('preview-modal-foot');
+  if (modalBody && modalFoot) {
+    modalBody.innerHTML = `
       ${capacityBlock}
       ${rateBlock}
       ${prereqBlock}
@@ -8164,20 +8192,19 @@ function wizPreview() {
       ${robHTML}
       ${attachNote}
       ${buildOrbPreviewHTML({ formatted: lines, officer: '', rank: '', attachment: wiz.attachment || null })}
-      <div style="margin-top:16px;display:flex;gap:10px;">
-        <button class="btn btn-green" onclick="openSigModal()"${hasViolation ? ' disabled title="Resolve the flagged violation before saving"' : ''}>Confirm with Signature</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('wiz-preview-area').innerHTML=''">Clear Preview</button>
-      </div>
-    </div>`;
-
-  // Scroll the rendered preview into view. The form panel is its own scroll
-  // container on desktop (.entry-form-panel overflow-y:auto), so without this
-  // the preview renders below the fold and the Confirm button is invisible.
-  try {
-    requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  } catch (_) {}
+    `;
+    modalFoot.innerHTML = `
+      <button class="btn btn-secondary" onclick="closeModal('preview-modal')">Back to Edit</button>
+      <button class="btn btn-green" onclick="closeModal('preview-modal');openSigModal()"${hasViolation ? ' disabled title="Resolve the flagged violation before saving"' : ''}>Confirm with Signature</button>
+    `;
+    openModal('preview-modal');
+    // Reset modal body scroll so user starts at the top of the preview.
+    requestAnimationFrame(() => { modalBody.scrollTop = 0; });
+  } else {
+    // Fallback for the (unused) inline area — kept so any external clearing
+    // logic that targets wiz-preview-area still works without errors.
+    el.innerHTML = '';
+  }
 }
 
 // ============================================================
