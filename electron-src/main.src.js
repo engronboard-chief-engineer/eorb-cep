@@ -22,7 +22,7 @@ const agreement = require('./agreement');
 const db = require('./db');
 
 const APP_VERSION = '1.3.6-portable-electron';
-const UPDATE_FEED_URL = 'https://chiefengineerpro.com/orb/electron-version.json';
+const UPDATE_FEED_URL = 'https://www.chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;
 
@@ -306,38 +306,48 @@ function registerIpc() {
     try { db.clear(resolveUsbDataDir(_usbRoot)); } catch (_) {}
   });
 
-  // --- Update check (unchanged) ---
+  // --- Update check ---
+  // Follows up to 3 redirects so the IPC handler survives server-side
+  // chiefengineerpro.com -> www.chiefengineerpro.com 307s (v1.3.5 didn't).
   ipcMain.handle('eorb:updates:check', async () => {
     return await new Promise((resolve) => {
-      try {
-        https.get(UPDATE_FEED_URL, (res) => {
-          let data = '';
-          res.on('data', (c) => { data += c; });
-          res.on('end', () => {
-            try {
-              const j = JSON.parse(data);
-              const platform = process.platform === 'darwin' ? 'mac' : 'win';
-              const downloadUrl = platform === 'mac'
-                ? (j.downloadUrlMac || j.downloadUrl || null)
-                : (j.downloadUrlWin || j.downloadUrl || null);
-              resolve({
-                ok: true,
-                currentVersion: APP_VERSION,
-                latestVersion: j.version || j.latest || null,
-                downloadUrl,
-                sizeMb: j.sizeMb || null,
-                headline: j.headline || null,
-                notes: j.notes || '',
-                urgency: j.urgency || 'recommended'
-              });
-            } catch (err) {
-              resolve({ ok: false, error: 'invalid feed: ' + err.message });
+      const fetchFeed = (url, hops) => {
+        try {
+          https.get(url, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hops < 3) {
+              res.resume();
+              const next = new URL(res.headers.location, url).toString();
+              return fetchFeed(next, hops + 1);
             }
-          });
-        }).on('error', (err) => resolve({ ok: false, error: err.message }));
-      } catch (err) {
-        resolve({ ok: false, error: err.message });
-      }
+            let data = '';
+            res.on('data', (c) => { data += c; });
+            res.on('end', () => {
+              try {
+                const j = JSON.parse(data);
+                const platform = process.platform === 'darwin' ? 'mac' : 'win';
+                const downloadUrl = platform === 'mac'
+                  ? (j.downloadUrlMac || j.downloadUrl || null)
+                  : (j.downloadUrlWin || j.downloadUrl || null);
+                resolve({
+                  ok: true,
+                  currentVersion: APP_VERSION,
+                  latestVersion: j.version || j.latest || null,
+                  downloadUrl,
+                  sizeMb: j.sizeMb || null,
+                  headline: j.headline || null,
+                  notes: j.notes || '',
+                  urgency: j.urgency || 'recommended'
+                });
+              } catch (err) {
+                resolve({ ok: false, error: 'invalid feed: ' + err.message });
+              }
+            });
+          }).on('error', (err) => resolve({ ok: false, error: err.message }));
+        } catch (err) {
+          resolve({ ok: false, error: err.message });
+        }
+      };
+      fetchFeed(UPDATE_FEED_URL, 0);
     });
   });
 
