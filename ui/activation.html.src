@@ -31,6 +31,22 @@
     padding:32px 36px 28px;
     box-shadow:0 24px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.03);
   }
+  /* Desktop landscape layout — keep the disclaimer fully visible without scrolling */
+  @media (min-width: 900px) {
+    .shell{ width:min(1080px,94vw); margin:24px auto; padding:28px 40px 24px; }
+    #pane-2 .agreement-card{ max-height:none; }
+    .pane-2-grid{
+      display:grid;
+      grid-template-columns:1.4fr 1fr;
+      gap:22px;
+      align-items:start;
+    }
+    .pane-2-grid .agreement-col{min-width:0}
+    .pane-2-grid .side-col{
+      display:flex;flex-direction:column;gap:14px;
+      position:sticky;top:8px;
+    }
+  }
   header{display:flex;align-items:center;gap:14px;margin-bottom:6px}
   .crest{
     width:46px;height:46px;border-radius:12px;
@@ -239,26 +255,31 @@
       <h2>Authorized User Declaration</h2>
       <p class="lede">Read the agreement below carefully. You must accept it before continuing. Your acceptance is recorded with a timestamp and bound to your license.</p>
 
-      <div class="agreement-card" id="agreementText">
-        <p>I confirm this license is for my personal authorized use.</p>
-        <p>I agree not to redistribute, clone, upload, resell, reverse engineer, or share unauthorized copies of this software or my license key.</p>
-        <p>I understand the software may include license verification, telemetry, watermarking, and anti-piracy mechanisms.</p>
-        <p>I acknowledge that unauthorized redistribution may result in revocation of my license without refund or notice.</p>
-      </div>
+      <div class="pane-2-grid">
+        <div class="agreement-col">
+          <div class="agreement-card" id="agreementText">
+            <p>I confirm this license is for my personal authorized use.</p>
+            <p>I agree not to redistribute, clone, upload, resell, reverse engineer, or share unauthorized copies of this software or my license key.</p>
+            <p>I understand the software may include license verification, telemetry, watermarking, and anti-piracy mechanisms.</p>
+            <p>I acknowledge that unauthorized redistribution may result in revocation of my license without refund or notice.</p>
+          </div>
+        </div>
+        <div class="side-col">
+          <label class="check-row" for="acceptChk" style="margin-top:0">
+            <input type="checkbox" id="acceptChk" />
+            <span class="lbl">I have read and I accept the Authorized User Declaration above.</span>
+          </label>
 
-      <label class="check-row" for="acceptChk">
-        <input type="checkbox" id="acceptChk" />
-        <span class="lbl">I have read and I accept the Authorized User Declaration above.</span>
-      </label>
+          <div class="privacy" style="margin-top:0">
+            <strong>Privacy:</strong> Information collected is used only for license verification and anti-piracy protection. No vessel records or operational ORB data are transmitted. Only activation metadata is stored.
+          </div>
 
-      <div class="privacy">
-        <strong>Privacy:</strong> Information collected is used only for license verification and anti-piracy protection. No vessel records or operational ORB data are transmitted. Only activation metadata is stored.
-      </div>
-
-      <div class="err" id="err2"></div>
-      <div class="actions">
-        <button class="btn ghost" id="back2">Back</button>
-        <button class="btn primary" id="next2" disabled>Continue</button>
+          <div class="err" id="err2"></div>
+          <div class="actions" style="margin-top:6px">
+            <button class="btn ghost" id="back2">Back</button>
+            <button class="btn primary" id="next2" disabled>Continue</button>
+          </div>
+        </div>
       </div>
     </section>
 

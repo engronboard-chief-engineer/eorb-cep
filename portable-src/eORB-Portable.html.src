@@ -100,11 +100,13 @@ body {
   font-family: var(--body);
   font-size: 14px;
   line-height: 1.5;
-  overflow: hidden;
-  height: 100vh;
   -webkit-font-smoothing: antialiased;
   font-kerning: normal;
 }
+@media (min-width: 769px) {
+  body { overflow: hidden; height: 100vh; }
+}
+/* Mobile body scroll is configured inside the @media (max-width: 768px) block further down. */
 
 /* ============================================================
    SCROLLBAR
@@ -2044,7 +2046,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
   /* Allow the page to scroll naturally on phones. Desktop has independent
      panel scrolling because body+#app are height:100vh / overflow:hidden;
      on mobile we want one body scroll. */
-  html, body { height: auto; overflow: visible; overflow-x: hidden; }
+  html, body { height: auto; overflow: visible; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
   #app { height: auto; overflow: visible; position: relative; }
   .main-area { overflow: visible; min-height: 0; }
   .tab-content { overflow: visible; }
@@ -2132,16 +2134,13 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
     height: auto;
     max-height: none;
     background: var(--bg2);
-    touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
   }
   .entry-panel:last-child { border-bottom: none; }
 
-  /* Prevent scroll lock on nested scrollable containers */
+  /* Let native page scroll handle nested containers — do not trap touch */
   .tab-pane, .entry-form-panel, .cat-panel, .act-panel {
-    touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
   }
 
   /* By default on mobile: show only the category panel */
@@ -2837,7 +2836,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.0 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.3 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3530,7 +3529,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.0-portable';
+const APP_VERSION = '1.4.3-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3539,6 +3538,14 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.3',
+    date: '2026-05-27',
+    title: 'Version sync — no functional change in desktop app',
+    items: [
+      'No change to the desktop app behavior. Version is aligned with the PWA / web app, which received a fix for stuck pinch-to-zoom on phones after tapping a form field'
+    ]
+  },
   {
     version: '1.4.0',
     date: '2026-05-27',
