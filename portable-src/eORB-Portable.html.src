@@ -801,6 +801,18 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 .form-select { cursor: pointer; }
 .form-select option { background: var(--bg3); }
 .form-textarea { resize: vertical; min-height: 80px; }
+
+/* Touch devices (iPhone/iPad/Android tablets) — 16px font kills iOS focus-zoom
+   regardless of viewport width. Targets pointer:coarse so iPad landscape
+   (≥1025px) also benefits. Desktop with mouse keeps the compact 13px type. */
+@media (hover: none) and (pointer: coarse) {
+  .form-input,
+  .form-select,
+  .form-textarea,
+  .act-input {
+    font-size: 16px;
+  }
+}
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .wf-err { color: var(--error-text); font-size: 12px; margin-top: 3px; min-height: 16px; display: none; }
 .wf-err.visible { display: block; }
@@ -2372,7 +2384,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
   .orb-col-date { width: 76px; }
   .orb-col-code { width: 22px; }
   .orb-col-item { width: 28px; }
-  .modal-body { padding: 14px; overflow-x: hidden; }
+  .modal-body { padding: 14px; }
   .modal-head { padding: 14px 16px; }
   .modal-foot {
     padding: 12px 14px;
@@ -2650,6 +2662,19 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
     transition: opacity 0.15s linear !important;
   }
 }
+
+/* ---- In-app toast (replaces alert() for post-action confirmations) ---- */
+#orb-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(20,24,32,0.97); color: #f6e8b4; border: 1px solid rgba(246,173,85,0.35);
+  border-radius: 10px; padding: 14px 24px; font-size: 14px; line-height: 1.55;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55); z-index: 99999; max-width: 420px; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.22s ease, transform 0.22s ease;
+  white-space: pre-line;
+}
+#orb-toast.visible {
+  opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto;
+}
 </style>
 </head>
 <body>
@@ -2836,7 +2861,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.3 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.6 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -2960,7 +2985,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
     <div class="tab-pane" id="tab-equipment">
       <div class="section-title">Equipment &mdash; Pumps &amp; Discharge Rates</div>
       <div class="edu-banner">
-        Configure your pumps, incinerator and boiler with their rated capacity (m3/hour). New entries that exceed a unit's rated rate &mdash; e.g. transferring 5 m3 of OWS effluent in 1 hour through a 3 m3/h pump, or burning 1 m3 of sludge in 1 hour through a 0.5 m3/h incinerator &mdash; will be flagged before save.
+        Configure your pumps, incinerator and boiler with their rated capacity (m3/hour). New entries that exceed a unit's rated rate &mdash; e.g. transferring 5 m<sup>3</sup> of OWS effluent in 1 hour through a 3 m3/h pump, or burning 1 m3 of sludge in 1 hour through a 0.5 m3/h incinerator &mdash; will be flagged before save.
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="openEquipmentModal(null)">+ Add Equipment</button>
@@ -3101,7 +3126,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="equipment-rate">Rated Capacity (m3/h)</label>
+          <label class="form-label" for="equipment-rate">Rated Capacity (m³/h)</label>
           <input class="form-input" type="number" id="equipment-rate" min="0" step="0.1" placeholder="3.0">
         </div>
       </div>
@@ -3168,7 +3193,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
           <strong>ROB-DOWN detected.</strong> Lowering ROB without a corresponding transfer/discharge breaks mass-balance. Provide a justification for this manual decrease — the reason is saved permanently to the tank history.
         </div>
         <label class="form-label" for="rob-edit-downreason">Justification for ROB Decrease <span style="color:#e05;">*</span></label>
-        <textarea class="form-input" id="rob-edit-downreason" rows="2" placeholder="e.g., recalibrated sounding gauge — previous figure was over-read by 0.5 m3"></textarea>
+        <textarea class="form-input" id="rob-edit-downreason" rows="2" placeholder="e.g., recalibrated sounding gauge — previous figure was over-read by 0.5 m<sup>3</sup>"></textarea>
       </div>
     </div>
     <div class="modal-foot">
@@ -3529,7 +3554,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.3-portable';
+const APP_VERSION = '1.4.6-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3539,21 +3564,50 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
   {
+    version: '1.4.6',
+    date: '2026-05-28',
+    title: 'Bug fixes: form fields, D-tank auto-duration, ROB validation, m³ display',
+    items: [
+      'Typing in form fields no longer freezes after saving an entry — replaced OS-level alert dialogs with in-app toasts so Electron keeps keyboard focus',
+      'D-tank: removed manual Duration and Pump Name fields; duration now auto-calculated from Start/Stop time',
+      'Sludge and bilge weekly inventory: cannot enter an ROB lower than the current recorded value (prevents accidental mass-balance errors)',
+      'All volume units now shown as m³ (superscript) throughout the interface',
+      'Android: time picker clock no longer cut off on the right side',
+      'Device limit no longer counts same device twice when using different browsers (Chrome + Firefox on same machine now treated as one device)',
+      'Update banner no longer shows raw HTML tags in the version notes'
+    ]
+  },
+  {
+    version: '1.4.5',
+    date: '2026-05-27',
+    title: 'Version sync — desktop-gate link fix shipped to PWA',
+    items: [
+      'No functional change in this Portable Edition (desktop-only product). Version aligned with the PWA which received a fix for the "Get the Desktop App" button that was hitting a 404'
+    ]
+  },
+  {
+    version: '1.4.4',
+    date: '2026-05-27',
+    title: 'Version sync — iPhone/iPad auto-zoom fix shipped to PWA',
+    items: [
+      'No functional change in this Portable Edition (desktop-only product). Version aligned with the PWA which received a fix for iPhone and iPad zooming in when users tap a form field'
+    ]
+  },
+  {
     version: '1.4.3',
     date: '2026-05-27',
-    title: 'Version sync — no functional change in desktop app',
+    title: 'Version sync — mobile zoom fix shipped to PWA',
     items: [
-      'No change to the desktop app behavior. Version is aligned with the PWA / web app, which received a fix for stuck pinch-to-zoom on phones after tapping a form field'
+      'No functional change in this Portable Edition (desktop-only product). Version aligned with the PWA which received a fix for stuck pinch-zoom on phones after tapping a form field'
     ]
   },
   {
     version: '1.4.0',
     date: '2026-05-27',
-    title: 'One-click auto-update (desktop)',
+    title: 'Version sync with eORB CEP (auto-update release)',
     items: [
-      'New: eORB CEP installer now updates itself. Click Update Now and the new version downloads in-app with a progress bar, then Restart & Install runs silently — no re-download, no installer wizard, no manual steps',
-      'Improved: Update banner now shows live download progress and a Restart button instead of opening the browser',
-      'Note: Pro Portable Edition still uses the manual flow (replace the .exe on your USB stick) because portable apps can\'t self-install'
+      'Note: This Portable Edition runs from your USB stick and cannot self-install. To update, download the new eORB-Pro-Portable-1.4.3.exe from chiefengineerpro.com and replace the old one on your USB. Your data, license, and signed agreement stay intact',
+      'The desktop eORB CEP installer (machine-locked) now supports one-click auto-update in the same release'
     ]
   },
   {
@@ -3578,8 +3632,7 @@ const CHANGELOG = [
     date: '2026-05-26',
     title: 'Preview opens as a popup',
     items: [
-      'Preview ORB Entry now opens in a popup window so the Confirm with Signature button is always visible — fixes the desktop bug where the button stayed below the fold even after the v1.3.6 scroll fix',
-      'Update check now follows redirects, so future in-app update banners reach you reliably'
+      'Preview ORB Entry now opens in a popup window so the Confirm with Signature button is always visible — fixes the desktop bug where the button stayed below the fold even after the v1.3.6 scroll fix'
     ]
   },
   {
@@ -3684,7 +3737,7 @@ function loadCrew()      { try { return JSON.parse(localStorage.getItem(STORE_CR
 function saveCrewData(d) { _lsSave(STORE_CREW,     d); }
 
 // Item E — equipment storage. Seeds two undeletable defaults on first read:
-// OWS pump @ 3.0 m3/h and sludge transfer pump @ 5.0 m3/h. Users can edit
+// OWS pump @ 3.0 m³/h and sludge transfer pump @ 5.0 m3/h. Users can edit
 // rates and add custom pumps, but cannot delete the two builtins.
 function loadEquipment() {
   let arr;
@@ -4395,7 +4448,7 @@ function renderEquipment() {
   }
   const typeLabel = { ows: 'OWS / Overboard', sludge: 'Sludge Pump', cargo: 'Cargo Pump', other: 'Other' };
   let html = `<div class="table-wrap"><table class="data-table" style="width:100%;">
-    <thead><tr><th>Name</th><th>Type</th><th style="text-align:right;">Rated (m3/h)</th><th>Notes</th><th></th></tr></thead><tbody>`;
+    <thead><tr><th>Name</th><th>Type</th><th style="text-align:right;">Rated (m³/h)</th><th>Notes</th><th></th></tr></thead><tbody>`;
   list.forEach(e => {
     html += `<tr>
       <td><strong>${esc(e.name)}</strong>${e.builtin ? ' <span class="badge badge-blue" style="margin-left:6px;">built-in</span>' : ''}</td>
@@ -4485,7 +4538,7 @@ function validateTransferRate(type, volume, hours) {
                     : type + ' unit';
     return {
       ok: false,
-      msg: `Effective rate ${rate.toFixed(2)} m3/h exceeds the configured ${unitLabel} capacity of ${maxRate.toFixed(2)} m3/h. Re-check the duration or volume, or update the rated capacity in the Equipment tab.`
+      msg: `Effective rate ${rate.toFixed(2)} m³/h exceeds the configured ${unitLabel} capacity of ${maxRate.toFixed(2)} m³/h. Re-check the duration or volume, or update the rated capacity in the Equipment tab.`
     };
   }
   return { ok: true, msg: '' };
@@ -4891,12 +4944,12 @@ function handleImport(e) {
       if (d.tanks)    saveTanks(d.tanks);
       if (d.entries)  saveEntries(d.entries);
       if (d.settings) saveSettings(d.settings);
-      alert('Import successful. ' + (d.entries||[]).length + ' entries loaded.');
+      showToast('Import successful. ' + (d.entries||[]).length + ' entries loaded.');
       renderLog();
       renderDashboard();
     } catch(err) {
       rollback();
-      alert('Import failed: ' + err.message + '\n\nYour previous data has been restored.');
+      showToast('Import failed: ' + err.message + '\n\nYour previous data has been restored.');
     }
   };
   r.onerror = function() {
@@ -5935,7 +5988,7 @@ function buildWizForm(op) {
           ${esc(t.name)}
         </td>
         <td style="padding:8px 10px;text-align:right;">
-          <span style="font-family:var(--mono);font-size:12px;color:var(--text3);">${fmt3(t.rob)} m3</span>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--text3);">${fmt3(t.rob)} m<sup>3</sup></span>
         </td>
         <td style="padding:6px 10px;">
           <input class="form-input" type="number" id="wf-inv-rob-${i}" data-tankid="${esc(t.id)}" data-cap="${t.capacity}" data-prevrob="${t.rob}"
@@ -5943,7 +5996,7 @@ function buildWizForm(op) {
             style="width:100%;padding:5px 8px;font-size:12px;box-sizing:border-box;">
         </td>
         <td style="padding:8px 10px;text-align:right;">
-          <span style="font-family:var(--mono);font-size:12px;color:var(--text3);">${fmt3(t.capacity)} m3</span>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--text3);">${fmt3(t.capacity)} m<sup>3</sup></span>
         </td>
         <td style="padding:6px 10px;" colspan="2">
           <select class="form-select" id="wf-inv-officer-${i}" data-mode="crew"
@@ -6117,7 +6170,7 @@ function buildWizForm(op) {
       </div>
       <div style="max-width:500px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;padding:10px 14px;margin-bottom:16px;font-family:var(--mono);font-size:13px;">
         <span style="color:var(--text3);font-size:11px;font-family:var(--sans);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Total Volume Transferred</span><br>
-        <span id="wf-total-vol" style="color:var(--amber);font-size:16px;font-weight:bold;">0.00 m3</span>
+        <span id="wf-total-vol" style="color:var(--amber);font-size:16px;font-weight:bold;">0.00 m<sup>3</sup></span>
         <input type="hidden" id="wf-qty" value="0">
         <div class="wf-err" id="err-wf-bilge-total" style="margin-top:6px;"></div>
       </div>
@@ -6132,18 +6185,8 @@ function buildWizForm(op) {
         <span style="color:var(--amber);margin:0 6px;">&#8594;</span>
         <span id="wf-bht-after" style="color:var(--green);"></span>
       </div>
-      <div class="form-row" style="max-width:600px;">
-        <div class="form-group">
-          <label class="form-label">Bilge Transfer Pump Name</label>
-          <input class="form-input" id="wf-bilge-pump-name" placeholder="${(()=>{ const eq=loadEquipment().find(e=>e.type==='bilge'); return eq?eq.name:'Bilge Transfer Pump'; })()}">
-          <div style="font-size:11px;color:var(--text3);margin-top:3px;">Editable. Set rated capacity in Equipment tab.</div>
-        </div>
-        <div class="form-group" style="max-width:160px;">
-          <label class="form-label">Duration (hours)</label>
-          <input class="form-input" type="number" id="wf-hours" min="0" step="0.1" placeholder="e.g. 2.5">
-          <div style="font-size:11px;color:var(--text3);margin-top:3px;">Used to check pump rate.</div>
-        </div>
-      </div>
+      <input type="hidden" id="wf-hours" value="0">
+      <input type="hidden" id="wf-bilge-pump-name" value="">
       <div class="form-group" style="max-width:500px;">
         <label class="form-label">Remarks (optional)</label>
         <input class="form-input" id="wf-remarks">
@@ -7086,7 +7129,7 @@ function removeBilgeWellRow(i) {
 function updateBilgeTotalVol() {
   const total = (wiz.bilgeWellInputs || []).reduce((s, r) => s + (parseFloat(r.vol) || 0), 0);
   const el = document.getElementById('wf-total-vol');
-  if (el) el.textContent = total.toFixed(3) + ' m3';
+  if (el) el.textContent = total.toFixed(3) + ' m³';
   const hidden = document.getElementById('wf-qty');
   if (hidden) hidden.value = total;
   updateBilgeTankPreview();
@@ -7141,8 +7184,8 @@ function updateBilgeTankPreview() {
   preview.style.display = 'block';
   const before = parseFloat(destTank.rob) || 0;
   const after  = before + total;
-  document.getElementById('wf-bht-before').textContent = 'Before: ' + before.toFixed(3) + ' m3';
-  document.getElementById('wf-bht-after').textContent  = 'After: '  + after.toFixed(3)  + ' m3';
+  document.getElementById('wf-bht-before').textContent = 'Before: ' + before.toFixed(3) + ' m³';
+  document.getElementById('wf-bht-after').textContent  = 'After: '  + after.toFixed(3)  + ' m³';
 }
 
 // ============================================================
@@ -7271,9 +7314,15 @@ function validateTimePair() {
       showFieldError('wf-stop', 'Stop time is more than 6 hours before start -- check your entry');
       return false;
     }
+    // Spans midnight — compute hrs over midnight
+    const hrsEl = document.getElementById('wf-hours');
+    if (hrsEl && hrsEl.type === 'hidden') hrsEl.value = ((1440 - startMins + stopMins) / 60).toFixed(2);
     showFieldWarn('wf-stop', 'Operation spans midnight -- confirm this is intentional');
     return 'warn';
   }
+  // Auto-calc duration for D-tank (hidden wf-hours field)
+  const hrsEl = document.getElementById('wf-hours');
+  if (hrsEl && hrsEl.type === 'hidden') hrsEl.value = ((stopMins - startMins) / 60).toFixed(2);
   clearFieldError('wf-stop');
   return true;
 }
@@ -7387,6 +7436,32 @@ function getTransferValidationErrors() {
   }
   if (isBilgeTank) {
     if (!validateBilgeTotalLive()) errors.push('Bilge well volumes are invalid or exceed destination tank');
+  }
+
+  // Inventory entries cannot record a lower ROB than current (would break mass-balance)
+  if (opId === 'C11-inv') {
+    const rows = document.querySelectorAll('#wf-inv-rows tr');
+    rows.forEach((row, i) => {
+      const robInput = document.getElementById('wf-inv-rob-' + i);
+      if (!robInput || robInput.value === '') return;
+      const prevRob = parseFloat(robInput.getAttribute('data-prevrob')) || 0;
+      const newRob  = parseFloat(robInput.value);
+      if (!isNaN(newRob) && newRob < prevRob - 0.001) {
+        const tankName = robInput.getAttribute('data-tankid') ? (() => {
+          const t = getTanks().find(t2 => t2.id === robInput.getAttribute('data-tankid'));
+          return t ? t.name : ('Tank ' + (i+1));
+        })() : ('Tank ' + (i+1));
+        errors.push(tankName + ': new ROB (' + fmt3(newRob) + ') cannot be lower than current ROB (' + fmt3(prevRob) + '). Use a disposal entry (Code C.12) to record a decrease.');
+      }
+    });
+  }
+  if (opId === 'I-inv') {
+    const srcId = (document.getElementById('wf-src') || {}).value || '';
+    const srcTank = getTanks().find(t => t.id === srcId);
+    const newRob = parseFloat((document.getElementById('wf-qty') || {}).value);
+    if (srcTank && !isNaN(newRob) && newRob < srcTank.rob - 0.001) {
+      errors.push(srcTank.name + ': new ROB (' + fmt3(newRob) + ') cannot be lower than current ROB (' + fmt3(srcTank.rob) + '). Use a Code D/E entry to record a bilge disposal.');
+    }
   }
 
   // OWS overboard discharge (D-ows, E-ows) hard gates
@@ -7588,8 +7663,8 @@ function _wizPreviewImpl() {
       const officer = crewParts[0] ? crewParts[0].trim() : '';
       const rank    = crewParts[1] ? crewParts[1].trim() : '2nd Engineer';
       lines.push({ date: dateStr, code: 'C', item: '11.1', text: nm + sec });
-      lines.push({ date: '',      code: '',   item: '11.2', text: fmt3(cap) + ' m3' });
-      lines.push({ date: '',      code: '',   item: '11.3', text: fmt3(newRob) + ' m3' });
+      lines.push({ date: '',      code: '',   item: '11.2', text: fmt3(cap) + ' m³' });
+      lines.push({ date: '',      code: '',   item: '11.3', text: fmt3(newRob) + ' m³' });
       // Per-tank signature marker — rendered as sig rows in book view
       lines.push({ _sigTank: true, officer, rank, ceName, entryDate: dateStr });
       if (tank && robInput.value !== '' && newRob !== prevRob) {
@@ -7604,9 +7679,9 @@ function _wizPreviewImpl() {
     const qty2 = parseFloat(getT('wf-qty2')) || 0;
     lines = [
       { date: dateStr, code: 'C', item: '11.1', text: srcTank ? tankLabel(srcTank) : 'Sludge Tank' },
-      { date: '',      code: '',  item: '11.2', text: fmt2(cap) + ' m3 (capacity)' },
-      { date: '',      code: '',  item: '11.3', text: fmt2(rob) + ' m3 retained' },
-      { date: '',      code: '',  item: '11.4', text: fmt2(qty2) + ' m3 collected from ' + src2 },
+      { date: '',      code: '',  item: '11.2', text: fmt2(cap) + ' m<sup>3</sup> (capacity)' },
+      { date: '',      code: '',  item: '11.3', text: fmt2(rob) + ' m³ retained' },
+      { date: '',      code: '',  item: '11.4', text: fmt2(qty2) + ' m³ collected from ' + src2 },
     ];
     if (srcTank && qty2 > 0) {
       const after = parseFloat(srcTank.rob) + qty2;
@@ -7617,14 +7692,14 @@ function _wizPreviewImpl() {
     const receiver = getT('wf-receiver') || 'shore facility';
     const port = getT('wf-port') || 'port';
     lines = [
-      { date: dateStr, code: 'C', item: '12.1', text: fmt2(qty) + ' m3 sludge from ' + (srcTank?tankLabel(srcTank):'sludge tank') + ', ' + fmt2(retained) + ' m3 retained, to "' + receiver + '" during port stay (' + port + ')' },
+      { date: dateStr, code: 'C', item: '12.1', text: fmt2(qty) + ' m³ sludge from ' + (srcTank?tankLabel(srcTank):'sludge tank') + ', ' + fmt2(retained) + ' m³ retained, to "' + receiver + '" during port stay (' + port + ')' },
     ];
     if (srcTank) robChanges.push({ tankId: srcTank.id, before: srcTank.rob, after: retained, reason: 'Sludge shore disposal (C.12.1)' });
   } else if (op.id === 'C12-xfer') {
     const retained = isNaN(qtyRet) ? Math.max(0, (srcTank ? srcTank.rob : 0) - qty) : qtyRet;
     const destAfter = destTank ? (parseFloat(destTank.rob) + qty) : 0;
     lines = [
-      { date: dateStr, code: 'C', item: '12.2', text: fmt2(qty) + ' m3 sludge transferred from ' + (srcTank?tankLabel(srcTank):'source tank') + ', ' + fmt2(retained) + ' m3 retained, to ' + (destTank?tankLabel(destTank):'destination tank') + ' retained in tank(s) ' + fmt2(destAfter) + ' m3' },
+      { date: dateStr, code: 'C', item: '12.2', text: fmt2(qty) + ' m³ sludge transferred from ' + (srcTank?tankLabel(srcTank):'source tank') + ', ' + fmt2(retained) + ' m³ retained, to ' + (destTank?tankLabel(destTank):'destination tank') + ' retained in tank(s) ' + fmt2(destAfter) + ' m³' },
     ];
     if (srcTank)  robChanges.push({ tankId: srcTank.id,  before: srcTank.rob,  after: retained, reason: 'Sludge transfer source (C.12.2)' });
     if (destTank) robChanges.push({ tankId: destTank.id, before: destTank.rob, after: destAfter, reason: 'Sludge transfer dest (C.12.2)' });
@@ -7632,15 +7707,15 @@ function _wizPreviewImpl() {
     const retained = isNaN(qtyRet) ? Math.max(0, (srcTank ? srcTank.rob : 0) - qty) : qtyRet;
     const hrs = parseFloat(getT('wf-hours')) || 0;
     lines = [
-      { date: dateStr, code: 'C', item: '12.3', text: fmt2(qty) + ' m3 sludge from ' + (srcTank?tankLabel(srcTank):'sludge tank') + ', ' + fmt2(retained) + ' m3 retained, Burned in Incinerator for ' + fmt2(hrs) + ' hours' },
+      { date: dateStr, code: 'C', item: '12.3', text: fmt2(qty) + ' m³ sludge from ' + (srcTank?tankLabel(srcTank):'sludge tank') + ', ' + fmt2(retained) + ' m³ retained, Burned in Incinerator for ' + fmt2(hrs) + ' hours' },
     ];
     if (srcTank) robChanges.push({ tankId: srcTank.id, before: srcTank.rob, after: retained, reason: 'Sludge incineration (C.12.3)' });
   } else if (['C12-boil','C12-evap','C12-regen'].includes(op.id)) {
     const retained = isNaN(qtyRet) ? Math.max(0, (srcTank ? srcTank.rob : 0) - qty) : qtyRet;
     const hrs = parseFloat(getT('wf-hours')) || 0;
-    const subText = op.id==='C12-boil' ? fmt2(qty)+' m3 sludge from '+(srcTank?tankLabel(srcTank):'sludge tank')+', '+fmt2(retained)+' m3 retained, Burned in Boiler for '+fmt2(hrs)+' hours'
-                  : op.id==='C12-evap' ? fmt2(qty)+' m3 water evaporated from '+(srcTank?tankLabel(srcTank):'sludge tank')+', '+fmt2(retained)+' m3 retained'
-                  : fmt2(qty)+' m3 sludge disposed by regeneration — '+getT('wf-regen-fuel')+' / water '+getT('wf-regen-water');
+    const subText = op.id==='C12-boil' ? fmt2(qty)+' m³ sludge from '+(srcTank?tankLabel(srcTank):'sludge tank')+', '+fmt2(retained)+' m³ retained, Burned in Boiler for '+fmt2(hrs)+' hours'
+                  : op.id==='C12-evap' ? fmt2(qty)+' m³ water evaporated from '+(srcTank?tankLabel(srcTank):'sludge tank')+', '+fmt2(retained)+' m³ retained'
+                  : fmt2(qty)+' m³ sludge disposed by regeneration — '+getT('wf-regen-fuel')+' / water '+getT('wf-regen-water');
     lines = [{ date: dateStr, code: 'C', item: '12.4', text: subText }];
     if (srcTank) robChanges.push({ tankId: srcTank.id, before: srcTank.rob, after: retained, reason: 'Sludge disposal (C.12.4)' });
   } else if (op.id === 'D-tank') {
@@ -7652,7 +7727,7 @@ function _wizPreviewImpl() {
       .map(r => {
         const t = allTanksList.find(x => x.id === r.tankId);
         const nm = t ? tankLabel(t) : (r.tankId === '__manual__' ? 'Bilge Well' : 'Bilge Well');
-        return nm + ' ' + parseFloat(r.vol).toFixed(3) + ' m3';
+        return nm + ' ' + parseFloat(r.vol).toFixed(3) + ' m³';
       });
     const destAfter = destTank ? (parseFloat(destTank.rob) + totalVol) : totalVol;
     const wellListText = wellNames.length > 1
@@ -7671,9 +7746,9 @@ function _wizPreviewImpl() {
     const bilgePumpName = (()=>{ const eq=loadEquipment().find(e=>e.type==='bilge'); return eq?eq.name:'Bilge Transfer Pump'; })();
     const bilgeHrs = parseFloat(getT('wf-hours')) || 0;
     lines = [
-      { date: dateStr, code: 'D', item: '13',   text: fmt2(totalVol) + ' m3 bilge water from engine-room bilge wells, pump: ' + bilgePumpName },
+      { date: dateStr, code: 'D', item: '13',   text: fmt2(totalVol) + ' m³ bilge water from engine-room bilge wells, pump: ' + bilgePumpName },
       { date: '',      code: '',  item: '14',   text: 'Start: ' + startLabel + ', stop: ' + stopLabel },
-      { date: '',      code: '',  item: '15.3', text: 'To ' + (destTank ? tankLabel(destTank) : '[Name of sec. 3.3 Tank & Designation]') + ', retained in tank(s) ' + fmt2(destAfter) + ' m3' },
+      { date: '',      code: '',  item: '15.3', text: 'To ' + (destTank ? tankLabel(destTank) : '[Name of sec. 3.3 Tank & Designation]') + ', retained in tank(s) ' + fmt2(destAfter) + ' m³' },
     ];
     if (destTank) robChanges.push({ tankId: destTank.id, before: destTank.rob, after: destAfter, reason: 'Bilge well transfer to holding tank (Code D)' });
   } else if (['D-sludge','D-slop'].includes(op.id)) {
@@ -7692,9 +7767,9 @@ function _wizPreviewImpl() {
     const startL2 = fmtDL(startDateV2) + (startT||'hh:mm') + ' H LT';
     const stopL2  = fmtDL(stopDateV2)  + (stopT||'hh:mm')  + ' H LT';
     lines = [
-      { date: dateStr, code: 'D', item: '13',   text: fmt2(qty) + ' m3 bilge water from ' + (srcTank?tankLabel(srcTank):'Engine Room Bilge Wells') + (srcCap ? ' Capacity ' + fmt2(srcCap) + ' m3' : '') + ', ' + fmt2(retained) + ' m3 retained' },
+      { date: dateStr, code: 'D', item: '13',   text: fmt2(qty) + ' m³ bilge water from ' + (srcTank?tankLabel(srcTank):'Engine Room Bilge Wells') + (srcCap ? ' Capacity ' + fmt2(srcCap) + ' m³' : '') + ', ' + fmt2(retained) + ' m³ retained' },
       { date: '',      code: '',  item: '14',   text: 'start: ' + startL2 + ', stop: ' + stopL2 },
-      { date: '',      code: '',  item: item15, text: 'to ' + (destTank?tankLabel(destTank):'destination tank') + '; retained in tank ' + fmt2(destAfter) + ' m3' },
+      { date: '',      code: '',  item: item15, text: 'to ' + (destTank?tankLabel(destTank):'destination tank') + '; retained in tank ' + fmt2(destAfter) + ' m³' },
     ];
     if (srcTank && !srcTank.isBilgeWell) robChanges.push({ tankId: srcTank.id, before: srcTank.rob, after: retained, reason: 'Bilge transfer source (Code D)' });
     if (destTank) robChanges.push({ tankId: destTank.id, before: destTank.rob, after: destAfter, reason: 'Bilge transfer destination (Code D)' });
@@ -7714,7 +7789,7 @@ function _wizPreviewImpl() {
     const startL3 = fmtDL3(startDateV3) + (startT||'hh:mm') + ' H LT';
     const stopL3  = fmtDL3(stopDateV3)  + (stopT||'hh:mm')  + ' H LT';
     lines = [
-      { date: dateStr, code: 'D', item: '13',   text: fmt2(qty) + ' m3 bilge water from ' + (srcTank?tankLabel(srcTank):'bilge tank') + ' Capacity ' + fmt2(srcCap) + ' m3, ' + fmt2(retained) + ' m3 retained' },
+      { date: dateStr, code: 'D', item: '13',   text: fmt2(qty) + ' m³ bilge water from ' + (srcTank?tankLabel(srcTank):'bilge tank') + ' Capacity ' + fmt2(srcCap) + ' m³, ' + fmt2(retained) + ' m³ retained' },
       { date: '',      code: '',  item: '14',   text: 'start: ' + startL3 + ', stop: ' + stopL3 },
       { date: '',      code: '',  item: '15.1', text: 'Through 15 ppm equipment overboard' },
       { date: '',      code: '',  item: '',     text: 'Position start: ' + posStart },
@@ -7747,7 +7822,7 @@ function _wizPreviewImpl() {
     lines = [
       { date: dateStr, code: 'G', item: '22', text: (startT || 'hh:mm') + ' H LT' },
       { date: '',      code: '',  item: '23', text: 'Place or Position: ' + (buildPos('wf-pos-start') || 'unknown') },
-      { date: '',      code: '',  item: '24', text: 'Type: ' + (getT('wf-reason')||'unknown') + (qty ? ', Approx. ' + fmt2(qty) + ' m3' : '') },
+      { date: '',      code: '',  item: '24', text: 'Type: ' + (getT('wf-reason')||'unknown') + (qty ? ', Approx. ' + fmt2(qty) + ' m³' : '') },
       { date: '',      code: '',  item: '25', text: 'Circumstances: ' + (remarks || 'describe circumstances') },
     ];
   } else if (op.id.startsWith('H-')) {
@@ -7783,7 +7858,7 @@ function _wizPreviewImpl() {
   } else if (op.id === 'I-cargo') {
     const destAfter = destTank ? (parseFloat(destTank.rob) + qty) : qty;
     lines = [
-      { date: dateStr, code: 'I', item: '', text: fmt2(qty) + ' m3 oily bilge water from Cargo Hold bilge holding tank to ' + (destTank?tankLabel(destTank):'holding tank') },
+      { date: dateStr, code: 'I', item: '', text: fmt2(qty) + ' m³ oily bilge water from Cargo Hold bilge holding tank to ' + (destTank?tankLabel(destTank):'holding tank') },
     ];
     if (destTank) robChanges.push({ tankId: destTank.id, before: destTank.rob, after: destAfter, reason: 'Cargo hold bilge (Code I)' });
   } else if (op.id === 'I-missed') {
@@ -7816,17 +7891,17 @@ function _wizPreviewImpl() {
       }
       if (missedOp.id === 'C12-xfer') {
         const destAfter = mDestTank ? parseFloat(mDestTank.rob) + mQty : mQty;
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.2', text: fmt2(mQty)+' m3 sludge transferred from '+(mSrcTank?tankLabel(mSrcTank):'source tank')+', '+fmt2(mRet)+' m3 retained, to '+(mDestTank?tankLabel(mDestTank):'destination tank')+' retained in tank(s) '+fmt2(destAfter)+' m3' }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.2', text: fmt2(mQty)+' m³ sludge transferred from '+(mSrcTank?tankLabel(mSrcTank):'source tank')+', '+fmt2(mRet)+' m³ retained, to '+(mDestTank?tankLabel(mDestTank):'destination tank')+' retained in tank(s) '+fmt2(destAfter)+' m³' }];
       } else if (missedOp.id === 'C12-shore') {
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.1', text: fmt2(mQty)+' m3 sludge from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m3 retained, to "'+getT('wf-receiver')+'" during port stay ('+getT('wf-port')+')' }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.1', text: fmt2(mQty)+' m³ sludge from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m³ retained, to "'+getT('wf-receiver')+'" during port stay ('+getT('wf-port')+')' }];
       } else if (missedOp.id === 'C12-incin') {
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.3', text: fmt2(mQty)+' m3 sludge from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m3 retained, Burned in Incinerator for '+(parseFloat(getT('wf-hours'))||0)+' hours' }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.3', text: fmt2(mQty)+' m³ sludge from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m³ retained, Burned in Incinerator for '+(parseFloat(getT('wf-hours'))||0)+' hours' }];
       } else if (missedOp.id === 'C12-boil') {
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.4', text: fmt2(mQty)+' m3 sludge from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m3 retained, Burned in Boiler for '+(parseFloat(getT('wf-hours'))||0)+' hours' }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.4', text: fmt2(mQty)+' m³ sludge from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m³ retained, Burned in Boiler for '+(parseFloat(getT('wf-hours'))||0)+' hours' }];
       } else if (missedOp.id === 'C12-evap') {
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.4', text: fmt2(mQty)+' m3 water evaporated from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m3 retained' }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.4', text: fmt2(mQty)+' m³ water evaporated from '+(mSrcTank?tankLabel(mSrcTank):'sludge tank')+', '+fmt2(mRet)+' m³ retained' }];
       } else if (missedOp.id === 'C12-regen') {
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.4', text: fmt2(mQty)+' m3 sludge disposed by regeneration -- '+getT('wf-regen-fuel')+' / water '+getT('wf-regen-water') }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '12.4', text: fmt2(mQty)+' m³ sludge disposed by regeneration -- '+getT('wf-regen-fuel')+' / water '+getT('wf-regen-water') }];
       } else if (missedOp.id === 'C11-inv') {
         // Inventory: read from wf-inv-rows table rendered in #missed-sub-form
         const iRows = document.querySelectorAll('#wf-inv-rows tr');
@@ -7840,37 +7915,37 @@ function _wizPreviewImpl() {
           const t2 = tanks.find(t3 => t3.id === tankId);
           const nm2 = t2 ? tankLabel(t2) : ('Tank '+(i+1));
           missedLines.push({ date: origDateStr, code: missedOp.code, item: '11.1', text: nm2 });
-          missedLines.push({ date: '', code: '', item: '11.2', text: fmt3(cap)+' m3' });
-          missedLines.push({ date: '', code: '', item: '11.3', text: fmt3(newRob)+' m3' });
+          missedLines.push({ date: '', code: '', item: '11.2', text: fmt3(cap)+' m³' });
+          missedLines.push({ date: '', code: '', item: '11.3', text: fmt3(newRob)+' m³' });
         });
         if (!missedLines.length) missedLines = [{ date: origDateStr, code: missedOp.code, item: '11.1', text: 'No sludge tanks' }];
       } else if (missedOp.id === 'C11-coll') {
         missedLines = [
           { date: origDateStr, code: missedOp.code, item: '11.1', text: (mSrcTank?tankLabel(mSrcTank):'Sludge Tank') },
-          { date: '', code: '', item: '11.3', text: fmt2(mQty)+' m3 retained' },
-          { date: '', code: '', item: '11.4', text: fmt2(parseFloat(getT('wf-qty2'))||0)+' m3 collected from '+(getT('wf-src2')||'source') },
+          { date: '', code: '', item: '11.3', text: fmt2(mQty)+' m³ retained' },
+          { date: '', code: '', item: '11.4', text: fmt2(parseFloat(getT('wf-qty2'))||0)+' m³ collected from '+(getT('wf-src2')||'source') },
         ];
       } else if (missedOp.id === 'D-tank') {
         const dAfter = mDestTank ? parseFloat(mDestTank.rob) + mQty : mQty;
         missedLines = [
-          { date: origDateStr, code: missedOp.code, item: '13',   text: fmt2(mQty)+' m3 bilge water from engine-room bilge wells,' },
+          { date: origDateStr, code: missedOp.code, item: '13',   text: fmt2(mQty)+' m³ bilge water from engine-room bilge wells,' },
           { date: '', code: '', item: '14',   text: 'Start: '+(mStart||'hh:mm')+', stop: '+(mStop||'hh:mm') },
-          { date: '', code: '', item: '15.3', text: 'To '+(mDestTank?tankLabel(mDestTank):'holding tank')+', retained in tank(s) '+fmt2(dAfter)+' m3' },
+          { date: '', code: '', item: '15.3', text: 'To '+(mDestTank?tankLabel(mDestTank):'holding tank')+', retained in tank(s) '+fmt2(dAfter)+' m³' },
         ];
       } else if (['D-ows','D-sludge','D-slop'].includes(missedOp.id)) {
         const dAfter2 = mDestTank ? parseFloat(mDestTank.rob) + mQty : mQty;
         const item15 = missedOp.id==='D-sludge'?'15.2':'15.3';
         missedLines = [
-          { date: origDateStr, code: missedOp.code, item: '13',   text: fmt2(mQty)+' m3 bilge water from '+(mSrcTank?tankLabel(mSrcTank):'source')+', '+fmt2(mRet)+' m3 retained' },
+          { date: origDateStr, code: missedOp.code, item: '13',   text: fmt2(mQty)+' m³ bilge water from '+(mSrcTank?tankLabel(mSrcTank):'source')+', '+fmt2(mRet)+' m³ retained' },
           { date: '', code: '', item: '14',   text: 'start: '+(mStart||'hh:mm')+' H LT, stop: '+(mStop||'hh:mm')+' H LT' },
-          { date: '', code: '', item: item15, text: missedOp.id==='D-ows'?'overboard via OWS':'to '+(mDestTank?tankLabel(mDestTank):'destination tank')+'; retained in tank '+fmt2(dAfter2)+' m3' },
+          { date: '', code: '', item: item15, text: missedOp.id==='D-ows'?'overboard via OWS':'to '+(mDestTank?tankLabel(mDestTank):'destination tank')+'; retained in tank '+fmt2(dAfter2)+' m³' },
         ];
       } else if (['E-ows','E-tank'].includes(missedOp.id)) {
         const eAfter = mDestTank ? parseFloat(mDestTank.rob) + mQty : mQty;
         missedLines = [
-          { date: origDateStr, code: missedOp.code, item: '16.1', text: fmt2(mQty)+' m3 bilge water from '+(mSrcTank?tankLabel(mSrcTank):'source')+', '+fmt2(mRet)+' m3 retained' },
+          { date: origDateStr, code: missedOp.code, item: '16.1', text: fmt2(mQty)+' m³ bilge water from '+(mSrcTank?tankLabel(mSrcTank):'source')+', '+fmt2(mRet)+' m³ retained' },
           { date: '', code: '', item: '16.2', text: 'Start: '+(mStart||'hh:mm')+', Stop: '+(mStop||'hh:mm') },
-          { date: '', code: '', item: missedOp.id==='E-tank'?'16.3':'16.4', text: missedOp.id==='E-ows'?'Overboard via OWS, effluent <15 ppm':'To '+(mDestTank?tankLabel(mDestTank):'holding tank')+' retained '+fmt2(eAfter)+' m3' },
+          { date: '', code: '', item: missedOp.id==='E-tank'?'16.3':'16.4', text: missedOp.id==='E-ows'?'Overboard via OWS, effluent <15 ppm':'To '+(mDestTank?tankLabel(mDestTank):'holding tank')+' retained '+fmt2(eAfter)+' m³' },
         ];
       } else if (missedOp.id === 'F-fail') {
         missedLines = [{ date: origDateStr, code: missedOp.code, item: '19', text: 'Failure of '+(getT('wf-equip')||'equipment')+' -- '+(remarks||'description') }];
@@ -7879,7 +7954,7 @@ function _wizPreviewImpl() {
       } else if (missedOp.id === 'G-acc') {
         missedLines = [
           { date: origDateStr, code: missedOp.code, item: '22', text: remarks||'Description of accidental discharge' },
-          { date: '', code: '', item: '23', text: 'Estimated quantity: '+fmt2(mQty)+' m3, position: '+(getT('wf-port')||'position') },
+          { date: '', code: '', item: '23', text: 'Estimated quantity: '+fmt2(mQty)+' m³, position: '+(getT('wf-port')||'position') },
           { date: '', code: '', item: '24', text: 'Steps taken: '+(getT('wf-steps')||'see remarks') },
         ];
       } else if (missedOp.id.startsWith('H-')) {
@@ -7899,7 +7974,7 @@ function _wizPreviewImpl() {
         ];
       } else if (missedOp.id === 'I-cargo') {
         const dAfterC = mDestTank ? parseFloat(mDestTank.rob) + mQty : mQty;
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: fmt2(mQty)+' m3 oily bilge water from Cargo Hold bilge holding tank to '+(mDestTank?tankLabel(mDestTank):'holding tank') }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: fmt2(mQty)+' m<sup>3</sup> oily bilge water from Cargo Hold bilge holding tank to '+(mDestTank?tankLabel(mDestTank):'holding tank') }];
       } else if (missedOp.id === 'I-debunk') {
         missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: fmt2(mQty)+' MT '+(getT('wf-iso')||'')+' de-bunkered from '+(mSrcTank?tankLabel(mSrcTank):'tank')+' now containing '+fmt2(mRet)+' MT. De-bunkered to "'+getT('wf-receiver')+'" in '+getT('wf-port')+(mFmtDT(mStart)?' Start '+mFmtDT(mStart):'')+(mFmtDT(mStop)?' Stop '+mFmtDT(mStop):'') }];
       } else if (missedOp.id === 'I-seal') {
@@ -7907,7 +7982,7 @@ function _wizPreviewImpl() {
       } else if (missedOp.id === 'I-unseal') {
         missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: 'Overboard valve '+getT('wf-valve')+' from 15 ppm bilge water separator unit unsealed for '+getT('wf-reason')+', seal No.: '+getT('wf-seal') }];
       } else if (missedOp.id === 'I-inv') {
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: 'Bilge Holding Tank '+(mSrcTank?tankLabel(mSrcTank):'tank')+': ROB '+fmt2(mQty)+' m3' }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: 'Bilge Holding Tank '+(mSrcTank?tankLabel(mSrcTank):'tank')+': ROB '+fmt2(mQty)+' m³' }];
       } else if (missedOp.id === 'I-owstest') {
         const mOwsMins = owsMinutesFromTimes(mStart, mStop);
         missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: 'Test of OWS through recirculation line for '+(mOwsMins||'__')+' minutes and test of OCM with satisfactory results.' }];
@@ -7915,7 +7990,7 @@ function _wizPreviewImpl() {
       } else if (missedOp.id === 'I-bunksample') {
         missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: remarks||'Bunker sample disposal' }];
       } else if (missedOp.id === 'I-bilgshore') {
-        missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: fmt2(mQty)+' m3 oily bilge water from '+(mSrcTank?tankLabel(mSrcTank):'holding tank')+', '+fmt2(mRet)+' m3 retained, to shore reception "'+getT('wf-receiver')+'" in '+getT('wf-port') }];
+        missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: fmt2(mQty)+' m³ oily bilge water from '+(mSrcTank?tankLabel(mSrcTank):'holding tank')+', '+fmt2(mRet)+' m³ retained, to shore reception "'+getT('wf-receiver')+'" in '+getT('wf-port') }];
       } else {
         missedLines = [{ date: origDateStr, code: missedOp.code, item: '', text: remarks||'Description of missed operation' }];
       }
@@ -7956,7 +8031,7 @@ function _wizPreviewImpl() {
     const cap = parseFloat(getT('wf-cap')) || (srcTank ? srcTank.capacity : 0);
     const rob2 = qty || (srcTank ? srcTank.rob : 0);
     lines = [
-      { date: dateStr, code: 'I', item: '', text: 'Weekly Inventory of Bilge Holding Tank' + (srcTank ? ' ' + tankLabel(srcTank) : '') + '; Capacity ' + fmt3(cap) + ' m3, ' + fmt3(rob2) + ' m3 retained' },
+      { date: dateStr, code: 'I', item: '', text: 'Weekly Inventory of Bilge Holding Tank' + (srcTank ? ' ' + tankLabel(srcTank) : '') + '; Capacity ' + fmt3(cap) + ' m³, ' + fmt3(rob2) + ' m³ retained' },
     ];
   } else if (op.id === 'I-owstest') {
     const owsMins = parseInt(getT('wf-duration'), 10);
@@ -7976,7 +8051,7 @@ function _wizPreviewImpl() {
     const port = getT('wf-port')     || 'port';
     const retained = isNaN(qtyRet) ? Math.max(0, (srcTank ? srcTank.rob : 0) - qty) : qtyRet;
     lines = [
-      { date: dateStr, code: 'I', item: '', text: fmt2(qty) + ' m3 bilge water from ' + (srcTank?tankLabel(srcTank):'bilge holding tank') + ', ' + fmt2(retained) + ' m3 retained, to ' + recv + ' during port stay ' + port },
+      { date: dateStr, code: 'I', item: '', text: fmt2(qty) + ' m³ bilge water from ' + (srcTank?tankLabel(srcTank):'bilge holding tank') + ', ' + fmt2(retained) + ' m³ retained, to ' + recv + ' during port stay ' + port },
     ];
     if (srcTank) robChanges.push({ tankId: srcTank.id, before: srcTank.rob, after: retained, reason: 'Bilge shore reception (Code I)' });
   } else if (op.id === 'M-correction') {
@@ -8267,11 +8342,8 @@ function _wizPreviewImpl() {
       <button class="btn btn-green" onclick="closeModal('preview-modal');openSigModal()"${hasViolation ? ' disabled title="Resolve the flagged violation before saving"' : ''}>Confirm with Signature</button>
     `;
     openModal('preview-modal');
-    // Reset modal body scroll so user starts at the top of the preview.
     requestAnimationFrame(() => { modalBody.scrollTop = 0; });
   } else {
-    // Fallback for the (unused) inline area — kept so any external clearing
-    // logic that targets wiz-preview-area still works without errors.
     el.innerHTML = '';
   }
 }
@@ -8501,9 +8573,9 @@ function confirmEntry() {
   const wasCorrectionReentry = !!wiz.isCorrectionOf;
   wizReset();
   if (wasCorrectionReentry) {
-    alert('Correction complete.\n\nThe incorrect entry has been struck through in the ORB Log. The correct entry has been saved and will appear immediately after it in the Record Book.\n\nRemember: This is an educational record only.');
+    showToast('Correction saved.\nIncorrect entry struck through. Correct entry added to ORB Log.');
   } else {
-    alert('Entry saved to ORB Log. ROBs updated.\n\nRemember: This is an educational record only.');
+    showToast('Entry saved to ORB Log. ROBs updated.');
   }
 }
 
@@ -9285,7 +9357,7 @@ function loadSampleDataNow() {
   seedSampleData();
   renderDashboard();
   switchTab('log');
-  alert('Sample data loaded — 10 actual ORB entries added (MEPC.1/Circ.736 format).');
+  showToast('Sample data loaded — 10 actual ORB entries added (MEPC.1/Circ.736 format).');
 }
 
 // SAMPLE DATA SEED (runs once; does not overwrite user data)
@@ -9314,9 +9386,9 @@ function seedSampleData() {
       officer: 'DANILO CRUZ', rank: '2nd Engineer',
       remarks: '',
       formatted: [
-        { date: '12-MAR-2025', code: 'D', item: '13',   text: '2.500 m3 bilge water from Engine Room Bilge Wells' },
+        { date: '12-MAR-2025', code: 'D', item: '13',   text: '2.500 m<sup>3</sup> bilge water from Engine Room Bilge Wells' },
         { date: '',            code: '',  item: '14',   text: 'start: 08:30 H LT, stop: 09:00 H LT' },
-        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 27.100 m3' },
+        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 27.100 m<sup>3</sup>' },
       ],
       officerSigImg: null, ceSigImg: null, attachment: null,
     },
@@ -9330,23 +9402,23 @@ function seedSampleData() {
       remarks: '',
       formatted: [
         { date: '15-MAR-2025', code: 'C', item: '11.1', text: 'Sludge Tank (FR-22-35) E/R 2nd Deck, Starboard Side' },
-        { date: '',            code: '',  item: '11.2', text: '53.700 m3' },
-        { date: '',            code: '',  item: '11.3', text: '45.340 m3' },
+        { date: '',            code: '',  item: '11.2', text: '53.700 m<sup>3</sup>' },
+        { date: '',            code: '',  item: '11.3', text: '45.340 m<sup>3</sup>' },
         { date: '',            code: 'C', item: '11.1', text: 'L.O. Drain Tank (FR-31-34) E/R Double Bottom, Starboard Side' },
-        { date: '',            code: '',  item: '11.2', text: '3.400 m3' },
-        { date: '',            code: '',  item: '11.3', text: '0.950 m3' },
+        { date: '',            code: '',  item: '11.2', text: '3.400 m<sup>3</sup>' },
+        { date: '',            code: '',  item: '11.3', text: '0.950 m<sup>3</sup>' },
         { date: '',            code: 'C', item: '11.1', text: 'F.O. Drain Tank (FR-31-34) E/R Double Bottom, Port Side' },
-        { date: '',            code: '',  item: '11.2', text: '3.400 m3' },
-        { date: '',            code: '',  item: '11.3', text: '0.700 m3' },
+        { date: '',            code: '',  item: '11.2', text: '3.400 m<sup>3</sup>' },
+        { date: '',            code: '',  item: '11.3', text: '0.700 m<sup>3</sup>' },
         { date: '',            code: 'C', item: '11.1', text: 'Oily Bilge Tank (FR-20-23) E/R Double Bottom, Port Side' },
-        { date: '',            code: '',  item: '11.2', text: '16.500 m3' },
-        { date: '',            code: '',  item: '11.3', text: '11.500 m3' },
+        { date: '',            code: '',  item: '11.2', text: '16.500 m<sup>3</sup>' },
+        { date: '',            code: '',  item: '11.3', text: '11.500 m<sup>3</sup>' },
         { date: '',            code: 'C', item: '11.1', text: 'M/E Scavenging Box Drain Tank (FR-17-18) E/R Tank Top, Port Side' },
-        { date: '',            code: '',  item: '11.2', text: '0.400 m3' },
-        { date: '',            code: '',  item: '11.3', text: '0.100 m3' },
+        { date: '',            code: '',  item: '11.2', text: '0.400 m<sup>3</sup>' },
+        { date: '',            code: '',  item: '11.3', text: '0.100 m<sup>3</sup>' },
         { date: '',            code: 'C', item: '11.1', text: 'Incinerator Waste Oil Tank (FR-16-19) Engine Casing, Upper Deck, Port Side' },
-        { date: '',            code: '',  item: '11.2', text: '2.000 m3' },
-        { date: '',            code: '',  item: '11.3', text: '0.000 m3' },
+        { date: '',            code: '',  item: '11.2', text: '2.000 m<sup>3</sup>' },
+        { date: '',            code: '',  item: '11.3', text: '0.000 m<sup>3</sup>' },
       ],
       officerSigImg: null, ceSigImg: null, attachment: null,
     },
@@ -9360,7 +9432,7 @@ function seedSampleData() {
       remarks: '',
       formatted: [
         { date: '15-MAR-2025', code: 'I', item: '', text: 'Weekly Inventory of Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center;' },
-        { date: '',            code: '',  item: '', text: 'Capacity 61.100 m3, 27.100 m3 retained' },
+        { date: '',            code: '',  item: '', text: 'Capacity 61.100 m<sup>3</sup>, 27.100 m<sup>3</sup> retained' },
       ],
       officerSigImg: null, ceSigImg: null, attachment: null,
     },
@@ -9387,9 +9459,9 @@ function seedSampleData() {
       officer: 'DANILO CRUZ', rank: '2nd Engineer',
       remarks: '',
       formatted: [
-        { date: '19-MAR-2025', code: 'D', item: '13',   text: '2.500 m3 bilge water from Engine Room Bilge Wells' },
+        { date: '19-MAR-2025', code: 'D', item: '13',   text: '2.500 m<sup>3</sup> bilge water from Engine Room Bilge Wells' },
         { date: '',            code: '',  item: '14',   text: 'start: 08:30 H LT, stop: 09:00 H LT' },
-        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 29.600 m3' },
+        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 29.600 m<sup>3</sup>' },
       ],
       officerSigImg: null, ceSigImg: null, attachment: null,
     },
@@ -9402,9 +9474,9 @@ function seedSampleData() {
       officer: 'DANILO CRUZ', rank: '2nd Engineer',
       remarks: '',
       formatted: [
-        { date: '04-APR-2025', code: 'D', item: '13',   text: '0.500 m3 bilge water from Engine Room Bilge Wells' },
+        { date: '04-APR-2025', code: 'D', item: '13',   text: '0.500 m<sup>3</sup> bilge water from Engine Room Bilge Wells' },
         { date: '',            code: '',  item: '14',   text: 'start: 08:30 H LT, stop: 08:40 H LT' },
-        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 30.100 m3' },
+        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 30.100 m<sup>3</sup>' },
       ],
       officerSigImg: null, ceSigImg: null, attachment: null,
     },
@@ -9417,9 +9489,9 @@ function seedSampleData() {
       officer: 'DANILO CRUZ', rank: '2nd Engineer',
       remarks: '',
       formatted: [
-        { date: '26-MAY-2025', code: 'D', item: '13',   text: '0.500 m3 bilge water from Engine Room Bilge Wells' },
+        { date: '26-MAY-2025', code: 'D', item: '13',   text: '0.500 m<sup>3</sup> bilge water from Engine Room Bilge Wells' },
         { date: '',            code: '',  item: '14',   text: 'start: 14:55 H LT, stop: 15:20 H LT' },
-        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 35.400 m3' },
+        { date: '',            code: '',  item: '15.3', text: 'to Bilge Holding Tank (FR-14-23) E/R Double Bottom, Center; retained in tank 35.400 m<sup>3</sup>' },
       ],
       officerSigImg: null, ceSigImg: null, attachment: null,
     },
@@ -9465,9 +9537,9 @@ function seedSampleData() {
       officer: 'DANILO CRUZ', rank: '2nd Engineer',
       remarks: '',
       formatted: [
-        { date: '09-JUN-2025', code: 'C', item: '12.1', text: '43.840 m3 sludge from Sludge Tank (FR-22-35) E/R 2nd Deck, Starboard Side, 1.500 m3 retained' },
+        { date: '09-JUN-2025', code: 'C', item: '12.1', text: '43.840 m<sup>3</sup> sludge from Sludge Tank (FR-22-35) E/R 2nd Deck, Starboard Side, 1.500 m<sup>3</sup> retained' },
         { date: '',            code: '',  item: '',     text: 'to tank truck (SEA AND) during port stay Boryeong South Korea' },
-        { date: '',            code: 'C', item: '12.1', text: '7.160 m3 sludge from Oily Bilge Tank (FR-20-23) E/R Double Bottom, Port Side, 4.460 m3 retained' },
+        { date: '',            code: 'C', item: '12.1', text: '7.160 m<sup>3</sup> sludge from Oily Bilge Tank (FR-20-23) E/R Double Bottom, Port Side, 4.460 m<sup>3</sup> retained' },
         { date: '',            code: '',  item: '',     text: 'to tank truck (SEA AND) during port stay Boryeong South Korea' },
       ],
       officerSigImg: null, ceSigImg: null, attachment: null,
@@ -9652,6 +9724,20 @@ function saveBookSignature() {
   // Refresh book preview in place
   openBookPreview();
 }
+
+// ============================================================
+// IN-APP TOAST
+// Non-blocking replacement for alert() — avoids Electron focus loss.
+// ============================================================
+var _toastTimer = null;
+function showToast(msg, durationMs) {
+  var el = document.getElementById('orb-toast');
+  if (!el) { alert(msg); return; }
+  el.textContent = msg;
+  el.classList.add('visible');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function() { el.classList.remove('visible'); }, durationMs || 3500);
+}
 </script>
 
 <!-- Portable Edition is a standalone file, not a PWA — no service worker. -->
@@ -9710,5 +9796,6 @@ function saveBookSignature() {
   </div>
 </div>
 
+<div id="orb-toast"></div>
 </body>
 </html>

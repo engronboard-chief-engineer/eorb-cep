@@ -27,7 +27,7 @@ const db = require('./db');
 let autoUpdater = null;
 try { autoUpdater = require('electron-updater').autoUpdater; } catch (_) {}
 
-const APP_VERSION = '1.4.3-portable-electron';
+const APP_VERSION = '1.4.6-portable-electron';
 const UPDATE_FEED_URL = 'https://www.chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;
@@ -185,9 +185,10 @@ function applyCSP() {
         'Content-Security-Policy': [
           "default-src 'self' 'unsafe-inline' data: blob:;",
           "script-src 'self' 'unsafe-inline';",
-          "style-src 'self' 'unsafe-inline';",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
+          "font-src 'self' https://fonts.gstatic.com data:;",
           "img-src 'self' data: blob:;",
-          "connect-src 'self';"
+          "connect-src 'self' https://n8n.srv1083339.hstgr.cloud https://chiefengineerpro.com https://www.chiefengineerpro.com;"
         ].join(' ')
       }
     });
@@ -378,7 +379,10 @@ function registerIpc() {
           latestVersion: latest || null,
           sizeMb: null,
           headline: res && res.updateInfo && res.updateInfo.releaseName || null,
-          notes: res && res.updateInfo && res.updateInfo.releaseNotes || '',
+          notes: (function(raw) {
+            var s = (raw && typeof raw === 'string') ? raw : '';
+            return s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim();
+          })(res && res.updateInfo && res.updateInfo.releaseNotes),
           urgency: 'recommended'
         };
       } catch (err) {
