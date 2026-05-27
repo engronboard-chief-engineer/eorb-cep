@@ -27,7 +27,7 @@ const db = require('./db');
 let autoUpdater = null;
 try { autoUpdater = require('electron-updater').autoUpdater; } catch (_) {}
 
-const APP_VERSION = '1.4.7-portable-electron';
+const APP_VERSION = '1.4.8-portable-electron';
 const UPDATE_FEED_URL = 'https://www.chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;

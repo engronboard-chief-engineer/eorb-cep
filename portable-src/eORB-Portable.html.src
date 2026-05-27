@@ -345,55 +345,61 @@ body {
 #license-save-panel.hidden { display: none; }
 #orb-update-banner {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 9990;
-  background: linear-gradient(90deg, rgba(10,13,18,0.98) 0%, rgba(20,16,8,0.98) 100%);
-  border-top: 2px solid var(--amber);
-  padding: 12px 20px;
+  background: linear-gradient(90deg, rgba(10,13,18,0.99) 0%, rgba(24,18,4,0.99) 100%);
+  border-top: 3px solid var(--amber);
+  padding: 14px 24px;
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; flex-wrap: wrap;
-  font-family: var(--sans); font-size: 13px;
-  color: var(--text);
-  box-shadow: 0 -4px 24px rgba(246,173,85,0.12);
+  font-family: var(--sans); font-size: 15px;
+  color: #fff;
+  box-shadow: 0 -6px 32px rgba(246,173,85,0.22);
 }
 #orb-update-banner.hidden { display: none; }
 #orb-update-copy {
-  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; flex: 1;
+  display: flex; flex-direction: column; gap: 4px; flex: 1;
+}
+#orb-update-copy-row1 {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 #orb-update-badge {
   background: var(--amber); color: #0a0d12;
-  font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
-  padding: 2px 7px; border-radius: 3px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.1em;
+  padding: 3px 8px; border-radius: 3px;
   white-space: nowrap; flex-shrink: 0;
 }
 #orb-update-headline {
-  font-weight: 600; color: var(--text); font-size: 13px;
+  font-weight: 700; color: #fff; font-size: 15px;
+}
+#orb-update-byline {
+  font-size: 11px; color: var(--amber); font-weight: 600; letter-spacing: 0.04em;
 }
 #orb-update-notes {
-  color: var(--text2); font-size: 12px;
+  color: #c8ccd4; font-size: 13px;
 }
 #orb-update-size {
-  color: var(--amber); font-size: 11px; font-weight: 500; white-space: nowrap;
+  color: var(--amber); font-size: 12px; font-weight: 500; white-space: nowrap;
 }
 #orb-update-actions {
   display: flex; align-items: center; gap: 12px; flex-shrink: 0;
 }
 #orb-update-link {
-  color: #0a0d12; font-weight: 700;
+  color: #0a0d12; font-weight: 800;
   text-decoration: none;
   background: var(--amber);
   border-radius: var(--radius-sm);
-  padding: 7px 16px; font-size: 13px;
+  padding: 9px 22px; font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
 }
 #orb-update-link:hover { background: #f8c860; }
 #orb-update-dismiss {
   background: none; border: none;
-  color: var(--text2); font-size: 12px;
+  color: #7a8090; font-size: 12px;
   cursor: pointer; line-height: 1;
   padding: 0; text-decoration: underline;
   text-underline-offset: 2px;
 }
-#orb-update-dismiss:hover { color: var(--text); }
+#orb-update-dismiss:hover { color: #fff; }
 #orb-update-progress {
   display: none; align-items: center; gap: 10px;
   min-width: 240px;
@@ -914,7 +920,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 /* ROB Dashboard table column helpers */
 .rob-dashboard-table { border-collapse: separate; border-spacing: 0; }
 .rob-dashboard-table th,
-.rob-dashboard-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rob-dashboard-table td { overflow: visible; white-space: normal; word-break: break-word; }
 .col-r { text-align: right !important; }
 .col-actions { white-space: nowrap; }
 
@@ -1608,9 +1614,9 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 #book-modal-title-text {
   color: #c8b878;
   flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
 }
 #book-edu-badge {
   font-size: 9px;
@@ -2332,7 +2338,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
   .sig-officer-name   { font-size: 9px; }
   .book-sig-date      { font-size: 8.5px; }
   .book-sig-row       { gap: 4px; flex-wrap: wrap; }
-  .book-sig-role-wrap { max-width: 55%; flex-shrink: 0; }
+  .book-sig-role-wrap { max-width: none; flex-shrink: 1; }
   .book-sig-mid       { min-width: 0; }
   .book-sig-date-wrap { flex-basis: 100%; text-align: left !important; padding-top: 1px; }
   .book-sig-img       { max-height: 16px !important; max-width: 65px !important; }
@@ -2726,8 +2732,11 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 <!-- Update banner: shown when a newer version is available online -->
 <div id="orb-update-banner" class="hidden">
   <div id="orb-update-copy">
-    <span id="orb-update-badge">UPDATE AVAILABLE</span>
-    <span id="orb-update-headline"></span>
+    <div id="orb-update-copy-row1">
+      <span id="orb-update-badge">UPDATE AVAILABLE</span>
+      <span id="orb-update-headline"></span>
+    </div>
+    <span id="orb-update-byline">Chief Engineer Pro &middot; C/E Roy Joseph C. Alim</span>
     <span id="orb-update-notes"></span>
     <span id="orb-update-size"></span>
   </div>
@@ -2861,7 +2870,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.6 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.8 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3554,7 +3563,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.6-portable';
+const APP_VERSION = '1.4.8-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3563,6 +3572,26 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.8',
+    date: '2026-05-28',
+    title: 'Fix: update banner clarity + version correction',
+    items: [
+      'Update banner is now larger and easier to read',
+      'Banner now shows Chief Engineer Pro and C/E Roy Joseph C. Alim as the release author',
+      'Corrected renderer version mismatch -- previous release packaged v1.4.6 renderer inside v1.4.7 installer'
+    ]
+  },
+  {
+    version: '1.4.7',
+    date: '2026-05-28',
+    title: 'Fix: crew names, no truncation, page-split date',
+    items: [
+      'Chief Engineer name is now frozen at the time each entry is recorded — renaming CE no longer changes old entries',
+      'Names, tank names, and descriptions no longer get cut off in the record book view',
+      'Entries split across pages now show the date on the first continuation row of the new page'
+    ]
+  },
   {
     version: '1.4.6',
     date: '2026-05-28',
@@ -4393,6 +4422,7 @@ function openCrewModal(id) {
     document.getElementById('crew-rank').value = '2nd Engineer';
   }
   openModal('crew-modal');
+  requestAnimationFrame(() => { const n = document.getElementById('crew-name'); if (n) n.focus(); });
 }
 
 function saveCrew() {
@@ -5175,6 +5205,17 @@ function buildBookPages(entries, vesselName, officialNo) {
     }
   }
 
+  // If a page starts with a continuation row (no date) that belongs to an entry
+  // whose first row is on the previous page, carry the entry date forward so the
+  // page doesn't begin with a blank date column.
+  for (let pi = 1; pi < pages.length; pi++) {
+    const first = pages[pi][0];
+    if (first && !first._isSigTankRow && !first.date && first._date) {
+      const prevHasSameEntry = pages[pi - 1].some(r => r._entryId === first._entryId);
+      if (prevHasSameEntry) first.date = first._date;
+    }
+  }
+
   function sigCell(dataUrl, roleLabel, officer, rank, entryId, sigType, entryDate) {
     const editBtn = `<button class="book-sig-edit-btn" onclick="openBookSigModal('${entryId}','${sigType}')" title="Sign here">&#9998;</button>`;
     // Build full + short role tags; CSS picks one based on viewport
@@ -5188,7 +5229,7 @@ function buildBookPages(entries, vesselName, officialNo) {
       : `<span class="sig-blank-line" style="display:inline-block;width:80px;height:14px;border-bottom:1px solid #aaa;"></span>`;
     const dateBlock = `<span class="book-sig-date" style="color:#444;white-space:nowrap;">${esc(entryDate)}</span>`;
     return `<div class="book-sig-row" style="display:flex;align-items:center;gap:8px;padding:0;line-height:1.2;overflow:hidden;width:100%;">
-      <div class="book-sig-role-wrap" style="flex:0 0 auto;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${roleBlock}</div>
+      <div class="book-sig-role-wrap" style="flex:1 1 auto;overflow:visible;white-space:normal;word-break:break-word;min-width:0;">${roleBlock}</div>
       <div class="book-sig-mid" style="flex:1;display:flex;align-items:center;gap:4px;min-width:0;">${editBtn}${sigBlock}</div>
       <div class="book-sig-date-wrap" style="flex:0 0 auto;text-align:right;white-space:nowrap;">${dateBlock}</div>
     </div>`;
@@ -8518,6 +8559,9 @@ function confirmEntry() {
   // For C11-inv: CE name is the confirming officer; per-tank officers are in formatted lines
   const entryOfficer = isMultiSig ? (name || 'Chief Engineer') : name;
   const entryRank    = isMultiSig ? 'Chief Engineer' : rank;
+  // Snapshot CE name at save time so crew renames don't alter old entries
+  const _ceMember = loadCrew().find(c => c.rank === 'Chief Engineer');
+  const entryCeName = _ceMember ? _ceMember.name : '';
   const entry = {
     id:            uid(),
     attachment:    wiz.attachment || null,
@@ -8527,6 +8571,7 @@ function confirmEntry() {
     operationType: op ? op.label : '',
     officer:       entryOfficer,
     rank:          entryRank,
+    ceName:        entryCeName,
     remarks:       wiz.remarks || '',
     formatted:     wiz.lines   || [],
     officerSigImg: officerSigImg || null,
