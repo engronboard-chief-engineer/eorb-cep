@@ -27,7 +27,7 @@ const db = require('./db');
 let autoUpdater = null;
 try { autoUpdater = require('electron-updater').autoUpdater; } catch (_) {}
 
-const APP_VERSION = '1.4.8-portable-electron';
+const APP_VERSION = '1.4.13-portable-electron';
 const UPDATE_FEED_URL = 'https://www.chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;
@@ -520,13 +520,15 @@ app.whenReady().then(() => {
   catch (err) { console.error('[main] db init failed:', err.message); }
 
   // 4. Route to activation or main UI.
+  // NSIS builds always open index.html (has its own activation gate).
+  // Portable builds open activation.html only on first run (no license yet).
   let hasLic;
   if (isPortableBuild()) {
     hasLic = activation.hasValidPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash);
+    mainWindow = createMainWindow(hasLic ? 'index.html' : 'activation.html');
   } else {
-    hasLic = activation.hasValidLicense(app.getPath('userData'));
+    mainWindow = createMainWindow('index.html');
   }
-  mainWindow = createMainWindow(hasLic ? 'index.html' : 'activation.html');
 });
 
 app.on('window-all-closed', () => {
@@ -536,12 +538,11 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    let hasLic;
     if (isPortableBuild()) {
-      hasLic = activation.hasValidPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash);
+      const hasLic = activation.hasValidPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash);
+      createMainWindow(hasLic ? 'index.html' : 'activation.html');
     } else {
-      hasLic = activation.hasValidLicense(app.getPath('userData'));
+      createMainWindow('index.html');
     }
-    mainWindow = createMainWindow(hasLic ? 'index.html' : 'activation.html');
   }
 });

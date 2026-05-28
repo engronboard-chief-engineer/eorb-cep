@@ -522,7 +522,8 @@
         return;
       }
       const msg = mapError(res && res.error);
-      errBox.textContent = msg;
+      const detail = res && res.detail ? ' [detail: ' + String(res.detail).slice(0, 200) + ']' : '';
+      errBox.textContent = msg + detail;
       errBox.classList.add('show');
       btn.disabled = false;
       btn.textContent = 'Try Again';

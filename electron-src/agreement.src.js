@@ -79,28 +79,75 @@ async function renderAgreementPdf({ identity, agreement, signatureDataUrl, licen
     height: 1100,
     show: false,
     webPreferences: {
-      sandbox: true,
+      sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      offscreen: true
+      webSecurity: false
+      // offscreen removed: printToPDF fails on offscreen-rendered windows.
+      // webSecurity:false lets the inline base64 signature <img> load when
+      // the page itself is served from a data: URL (some Electron builds
+      // otherwise block the nested data:image resource).
     }
   });
 
   try {
-    // data: URL avoids touching disk. Browser caps the URL size at ~2 MB by
-    // default in some Chromium builds; the agreement HTML stays well under that.
-    const dataUrl = 'data:text/html;charset=utf-8;base64,' +
-      Buffer.from(html, 'utf8').toString('base64');
-    await win.loadURL(dataUrl);
-    // Give the page one paint cycle to layout (signature image, fonts).
-    await new Promise(r => setTimeout(r, 250));
-    const pdf = await win.webContents.printToPDF({
-      pageSize: 'A4',
-      printBackground: true,
-      landscape: false,
-      margins: { top: 18, bottom: 18, left: 18, right: 18 }
-    });
-    return pdf;  // Buffer
+    // Write HTML to a temp file instead of a data: URL. Large base64 data
+    // URLs (signature image inside the HTML) can exceed Chromium's URL
+    // length limits in packaged builds and cause loadURL to silently fail.
+    const tmpDir = app.getPath('temp');
+    const tmpFile = path.join(tmpDir, `eorb-agreement-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`);
+    fs.writeFileSync(tmpFile, html, 'utf8');
+
+    const fileUrl = 'file:///' + tmpFile.replace(/\\/g, '/');
+    try {
+      await win.loadURL(fileUrl);
+    } catch (loadErr) {
+      throw new Error('loadURL failed: ' + loadErr.message);
+    }
+
+    // Wait for fonts AND the signature image to be fully decoded before we
+    // call printToPDF. document.fonts.ready resolves once webfonts settle;
+    // the image check resolves once <img> is naturalWidth>0.
+    try {
+      await win.webContents.executeJavaScript(`(async () => {
+        try { if (document.fonts && document.fonts.ready) { await document.fonts.ready; } } catch(_) {}
+        const imgs = Array.from(document.images || []);
+        await Promise.all(imgs.map(img => {
+          if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+          return new Promise(res => {
+            const done = () => res();
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+            setTimeout(done, 2500);
+          });
+        }));
+        return true;
+      })()`, true);
+    } catch (waitErr) {
+      // Don't abort -- some renderer envs reject executeJavaScript but the
+      // page is still printable. Fall through to printToPDF.
+    }
+
+    // Belt-and-suspenders: a small fixed delay covers any tail layout work
+    // (CSS grid, gradient backgrounds) that finishes after image-load fires.
+    await new Promise(r => setTimeout(r, 400));
+
+    let pdf;
+    try {
+      pdf = await win.webContents.printToPDF({
+        pageSize: 'A4',
+        printBackground: true,
+        landscape: false,
+        margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }
+      });
+    } catch (pdfErr) {
+      throw new Error('printToPDF failed: ' + pdfErr.message);
+    }
+
+    // Clean up the temp HTML.
+    try { fs.unlinkSync(tmpFile); } catch (_) {}
+
+    return pdf;
   } finally {
     try { win.destroy(); } catch (_) {}
   }

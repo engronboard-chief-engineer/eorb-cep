@@ -2870,7 +2870,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.8 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.13 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3563,7 +3563,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.8-portable';
+const APP_VERSION = '1.4.13-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3572,6 +3572,53 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.13',
+    date: '2026-05-28',
+    title: 'Fix: app launches again (integrity manifest rebuilt)',
+    items: [
+      'Resolves the "Integrity violation detected — hash mismatch: ui/index.html" dialog that prevented v1.4.12 from opening',
+      'No functional changes from v1.4.12 — same toast fixes, same crew/ROB behavior',
+      'Added a build-time guard so a stale manifest can never ship again'
+    ]
+  },
+  {
+    version: '1.4.12',
+    date: '2026-05-28',
+    title: 'Fix: fields no longer freeze after a validation error',
+    items: [
+      'Replaced every blocking native alert() with in-app toast notifications — fixes the bug where ROB Edit, Add Crew, Add Tank, Add Equipment, and entry-save dialogs left fields unclickable after an error',
+      'Validation messages now appear at the bottom of the screen without stealing focus, so you can correct the field immediately without closing and reopening the app',
+      'Affects all error paths: ROB-down justification, invalid time, invalid number, missing crew, missing officer, preview validation, correction-entry selection, signature required'
+    ]
+  },
+  {
+    version: '1.4.11',
+    date: '2026-05-28',
+    title: 'Fix: license PDF activation now completes',
+    items: [
+      'Fixed printToPDF margin units (inches, not millimeters) so the license PDF actually renders during first-time activation',
+      'Drive upload of signed agreement now triggers cleanly after a successful local PDF render'
+    ]
+  },
+  {
+    version: '1.4.10',
+    date: '2026-05-28',
+    title: 'Fix: license PDF generation on activation',
+    items: [
+      'Rewrote PDF rendering pipeline (file-backed HTML, font + image readiness wait) so license PDFs always generate on first activation',
+      'Activation errors now show the underlying detail to make support faster'
+    ]
+  },
+  {
+    version: '1.4.9',
+    date: '2026-05-28',
+    title: 'Fix: NSIS installer no longer shows portable activation wizard',
+    items: [
+      'Desktop installer now always opens the standard license key screen on first run',
+      'Portable agreement wizard is now exclusive to the USB portable build'
+    ]
+  },
   {
     version: '1.4.8',
     date: '2026-05-28',
@@ -3751,9 +3798,9 @@ function _lsSave(key, data) {
     localStorage.setItem(key, JSON.stringify(data));
   } catch(e) {
     if (e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014)) {
-      alert('Storage full. Your browser\'s local storage is full.\n\nPlease export a backup (ORB Log → Export JSON) then clear some old data to free up space.');
+      showToast('Storage full. Your browser\'s local storage is full.\n\nPlease export a backup (ORB Log → Export JSON) then clear some old data to free up space.', 6500);
     } else {
-      alert('Save failed: ' + (e && e.message ? e.message : 'Unknown error'));
+      showToast('Save failed: ' + (e && e.message ? e.message : 'Unknown error'), 5500);
     }
   }
 }
@@ -3818,7 +3865,7 @@ function openMasterClockModal() {
 }
 function saveMasterClock() {
   const v = (document.getElementById('master-clock-input') || {}).value || '';
-  if (!/^\d{2}:\d{2}$/.test(v)) { alert('Enter a valid time in HH:MM (24h) format.'); return; }
+  if (!/^\d{2}:\d{2}$/.test(v)) { showToast('Enter a valid time in HH:MM (24h) format.'); return; }
   try {
     localStorage.setItem('orb_masterTime', v);
     localStorage.setItem('orb_masterTimeEdited', 'true');
@@ -4292,7 +4339,7 @@ function saveRobEdit() {
   const unit   = document.getElementById('rob-edit-unit').value;
   const reason = document.getElementById('rob-edit-reason').value;
   const remark = document.getElementById('rob-edit-remarks').value.trim();
-  if (isNaN(newRob) || newRob < 0) { alert('Enter a valid ROB value.'); return; }
+  if (isNaN(newRob) || newRob < 0) { showToast('Enter a valid ROB value.'); return; }
   const t = tanks.find(x => x.id === id);
   if (!t) return;
   const before = t.rob;
@@ -4302,7 +4349,7 @@ function saveRobEdit() {
     const txta = document.getElementById('rob-edit-downreason');
     downReason = txta ? txta.value.trim() : '';
     if (!downReason) {
-      alert('ROB-DOWN requires a written justification.\n\nLowering a tank ROB without a corresponding transfer or discharge breaks mass-balance. Type the reason in the "Justification for ROB Decrease" box, then try again.');
+      showToast('ROB-DOWN requires a written justification. Lowering a tank ROB without a corresponding transfer or discharge breaks mass-balance. Type the reason in the "Justification for ROB Decrease" box, then try again.', 7000);
       if (txta) txta.focus();
       return;
     }
@@ -4429,7 +4476,7 @@ function saveCrew() {
   const id   = document.getElementById('crew-edit-id').value;
   const name = document.getElementById('crew-name').value.trim().toUpperCase();
   const rank = document.getElementById('crew-rank').value;
-  if (!name) { alert('Name is required.'); return; }
+  if (!name) { showToast('Name is required.'); return; }
   const crew = loadCrew();
   if (id) {
     const c = crew.find(x => x.id === id);
@@ -4522,8 +4569,8 @@ function saveEquipment() {
   const type  = document.getElementById('equipment-type').value;
   const rate  = parseFloat(document.getElementById('equipment-rate').value);
   const notes = document.getElementById('equipment-notes').value.trim();
-  if (!name) { alert('Equipment name is required.'); return; }
-  if (isNaN(rate) || rate <= 0) { alert('Rated capacity must be a positive number.'); return; }
+  if (!name) { showToast('Equipment name is required.'); return; }
+  if (isNaN(rate) || rate <= 0) { showToast('Rated capacity must be a positive number.'); return; }
   const list = loadEquipment();
   if (id) {
     const e = list.find(x => x.id === id);
@@ -4540,7 +4587,7 @@ function deleteEquipment(id) {
   const list = loadEquipment();
   const e = list.find(x => x.id === id);
   if (!e) return;
-  if (e.builtin) { alert('Built-in equipment cannot be deleted. You can edit its rated capacity instead.'); return; }
+  if (e.builtin) { showToast('Built-in equipment cannot be deleted. You can edit its rated capacity instead.', 5500); return; }
   if (!confirm('Delete "' + e.name + '"? This cannot be undone.')) return;
   saveEquipmentData(list.filter(x => x.id !== id));
   renderEquipment();
@@ -4668,7 +4715,7 @@ function saveTank() {
   // even a capitalization difference can be flagged as a PSC deficiency.
   const name = document.getElementById('tank-name').value;
   const type = document.getElementById('tank-type').value;
-  if (!name || !name.trim()) { alert('Tank name required.'); return; }
+  if (!name || !name.trim()) { showToast('Tank name required.'); return; }
   const isBilgeWell = (type === 'bilgewell');
   const unit     = document.getElementById('tank-unit').value;
   const capacity = parseFloat(document.getElementById('tank-capacity').value) || 0;
@@ -4920,7 +4967,7 @@ function deleteEntry(id) {
 
 function clearLog() {
   const entries = loadEntries();
-  if (!entries.length) { alert('No entries to clear.'); return; }
+  if (!entries.length) { showToast('No entries to clear.'); return; }
   if (!confirm('Clear ALL ' + entries.length + ' ORB log entries?\n\nA backup file will be downloaded automatically before clearing.')) return;
   if (!confirm('Are you sure? This cannot be undone.')) return;
   // Auto-export backup before clearing
@@ -4983,7 +5030,7 @@ function handleImport(e) {
     }
   };
   r.onerror = function() {
-    alert('Could not read the file. Please try again.');
+    showToast('Could not read the file. Please try again.', 5000);
   };
   r.readAsText(file);
   e.target.value = '';
@@ -4999,7 +5046,7 @@ function printRecordBook() {
   const officialNo = settings.imo || '';
   const container = document.getElementById('print-record-container');
   if (!entries.length) {
-    alert('No entries recorded yet.');
+    showToast('No entries recorded yet.');
     return;
   }
   container.innerHTML = buildBookPages(entries, vesselName, officialNo);
@@ -7624,7 +7671,7 @@ function wizPreview() {
     return _wizPreviewImpl();
   } catch (err) {
     try {
-      alert('Preview failed: ' + (err && err.message ? err.message : String(err)) + '\n\nPlease screenshot this and send to support.');
+      showToast('Preview failed: ' + (err && err.message ? err.message : String(err)) + ' — Please screenshot this and send to support.', 8000);
       // eslint-disable-next-line no-console
       console.error('[wizPreview]', err);
     } catch (_) {}
@@ -7666,7 +7713,7 @@ function _wizPreviewImpl() {
     // Scroll entry form panel into view
     const formPanel = document.getElementById('entry-form-content');
     if (formPanel) formPanel.scrollTop = 0;
-    alert('Please fix the following before generating a preview:\n\n' + validationErrs.map(e => '-- ' + e).join('\n'));
+    showToast('Please fix the following before generating a preview: ' + validationErrs.map(e => '• ' + e).join(' | '), 8000);
     return;
   }
 
@@ -8098,10 +8145,10 @@ function _wizPreviewImpl() {
   } else if (op.id === 'M-correction') {
     const corrEntryId = getT('wf-corr-entry');
     const corrCEName  = getT('wf-corr-ce') || 'Chief Engineer';
-    if (!corrEntryId) { alert('Please select an entry to correct.'); return; }
+    if (!corrEntryId) { showToast('Please select an entry to correct.'); return; }
     const allEnt = loadEntries();
     const corrEntry = allEnt.find(e => e.id === corrEntryId);
-    if (!corrEntry) { alert('Entry not found.'); return; }
+    if (!corrEntry) { showToast('Entry not found.'); return; }
     // Mark original as corrected immediately
     corrEntry.corrected   = true;
     corrEntry.correctedBy = corrCEName;
@@ -8137,7 +8184,7 @@ function _wizPreviewImpl() {
     // Now launch the same operation's form so user re-enters correct data
     const origOpId = OPERATIONS.find(o => o.label === corrEntry.operationType)?.id || corrEntry.code;
     if (!origOpId || !OPERATIONS.find(o => o.id === origOpId)) {
-      alert('Cannot find the original operation type to re-enter. Entry has been struck through. Please add the correct entry manually.');
+      showToast('Cannot find the original operation type to re-enter. Entry has been struck through. Please add the correct entry manually.', 7000);
       wizReset();
       return;
     }
@@ -8545,9 +8592,9 @@ function confirmEntry() {
     const crew = loadCrew();
     const hasNonCE = crew.some(c => c.rank !== 'Chief Engineer');
     if (!hasNonCE) {
-      alert('No crew added yet.\n\nGo to the Crew tab and add at least one officer (2nd/3rd/4th Engineer) before saving an entry.');
+      showToast('No crew added yet. Go to the Crew tab and add at least one officer (2nd/3rd/4th Engineer) before saving an entry.', 7000);
     } else {
-      alert('Please select an officer from the dropdown.');
+      showToast('Please select an officer from the dropdown.');
     }
     return;
   }
@@ -9757,7 +9804,7 @@ function closeBookSignModal() {
 
 function saveBookSignature() {
   const { entryId, sigType, pad } = _bookSignState;
-  if (!pad || !pad.hasStrokes) { alert('Please draw your signature first.'); return; }
+  if (!pad || !pad.hasStrokes) { showToast('Please draw your signature first.'); return; }
   const dataUrl = pad.canvas.toDataURL('image/png');
   const entries = loadEntries();
   const entry = entries.find(e => e.id === entryId);
