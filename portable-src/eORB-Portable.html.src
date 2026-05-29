@@ -43,8 +43,8 @@ html, body { height: 100%; }
   --purple:    #b794f4;
   --purple-dim:rgba(183,148,244,0.12);
   --text:      #e2e8f0;
-  --text2:     #94a3b8;
-  --text3:     #4a5568;
+  --text2:     #cbd5e1;
+  --text3:     #94a3b8;
   --mono:      'JetBrains Mono', monospace;
   --sans:      'Plus Jakarta Sans', sans-serif;
   --body:      'Plus Jakarta Sans', sans-serif;
@@ -591,6 +591,17 @@ body.light .disc-box .disc-warning-strong strong { color: #9b0036; }
   background: rgba(255,255,255,0.06);
 }
 .sidebar-footer-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.sidebar-credit {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: rgba(255,255,255,0.34);
+  padding: 6px 12px 4px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---- MAIN AREA ---- */
 .main-area {
@@ -1586,6 +1597,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
   .sidebar-vessel,
   .sidebar-section-label,
   .nav-item span,
+  .sidebar-credit,
   .sidebar-footer-btn span { display: none; }
   .nav-item { justify-content: center; padding: 10px; }
   .nav-item svg { width: 20px; height: 20px; }
@@ -2116,6 +2128,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
   .sidebar.open .sidebar-vessel,
   .sidebar.open .sidebar-section-label,
   .sidebar.open .nav-item span,
+  .sidebar.open .sidebar-credit,
   .sidebar.open .sidebar-footer-btn span { display: revert; }
   .sidebar.open .nav-item {
     justify-content: flex-start;
@@ -2887,6 +2900,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
     </nav>
 
     <div class="sidebar-footer">
+      <div class="sidebar-credit" title="Developed by C/E Roy Joseph C. Alim">Developed by C/E Roy Joseph C. Alim</div>
       <button class="sidebar-footer-btn" onclick="toggleTheme()" id="theme-toggle-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         <span id="theme-toggle-label">Light Mode</span>
@@ -2909,7 +2923,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.16 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.17 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -2951,7 +2965,10 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       <div class="entry-layout" id="entry-layout" data-mobile-step="cat" style="flex:1;margin:0 20px 20px;">
         <!-- LEFT: Category list -->
         <div class="entry-panel" id="panel-cat">
-          <div class="entry-panel-header">Categories</div>
+          <div class="entry-panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span>Categories</span>
+            <button id="act-mode-toggle" type="button" onclick="toggleActMode()" title="Toggle between activity names and MARPOL codes" style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--sans);letter-spacing:0.02em;">Code</button>
+          </div>
           <div id="cat-list"></div>
         </div>
         <!-- MIDDLE: Activity list -->
@@ -2960,10 +2977,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             Categories
           </button>
-          <div class="entry-panel-header" style="display:flex;align-items:center;justify-content:space-between;">
-            <span>Activities</span>
-            <button id="act-mode-toggle" type="button" onclick="toggleActMode()" style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--sans);letter-spacing:0.02em;">Code</button>
-          </div>
+          <div class="entry-panel-header">Activities</div>
           <div id="act-list"><div class="act-info-panel">Select a category to view activities.</div></div>
         </div>
         <!-- RIGHT: Form panel -->
@@ -2987,8 +3001,8 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="openBookPreview()">View as Record Book</button>
-        <button class="btn btn-secondary btn-sm" onclick="exportLog()">Export JSON</button>
-        <button class="btn btn-secondary btn-sm" onclick="importLog()">Import JSON</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportLog()" title="Export Records (saves a backup file of every entry)">Export Records</button>
+        <button class="btn btn-secondary btn-sm" onclick="importLog()" title="Import Records (restore entries from a backup file)">Import Records</button>
         <button class="btn btn-secondary btn-sm no-print" onclick="printRecordBook()">Print Record Book</button>
         <button class="btn btn-danger btn-sm" onclick="clearLog()">Clear All Entries</button>
       </div>
@@ -3621,7 +3635,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.16-portable';
+const APP_VERSION = '1.4.17-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3631,6 +3645,21 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
   {
+    version: '1.4.17',
+    date: '2026-05-30',
+    title: 'Signed entries locked, historical CE name preserved, refreshed entry UI',
+    items: [
+      'Once an entry is signed, the pen icon disappears — signatures can no longer be overwritten. Use the Correction of Entry flow (M-correction) for any retroactive change; the audit trail stays intact',
+      'Chief Engineer name is now snapshotted onto every entry at save time. Renaming or replacing the current CE no longer rewrites the CE shown on historical entries',
+      'One-time migration on this update: pre-existing entries that have no stored CE name are stamped with the current CE so their record reads consistently going forward',
+      'Export JSON / Import JSON buttons renamed to Export Records / Import Records (with explanatory tooltips). The on-disk file format is unchanged — backups from older versions still restore correctly',
+      'Ballast / Cleaning of Fuel Tanks, Initial Entry, SOOT, and Special Activities are now grouped under a new "Other" reference category — the main list is shorter and easier to scan',
+      'Code / Activity toggle moved next to the Categories header so it is reachable on mobile before drilling into a category',
+      'Dark-mode muted text uses higher contrast — secondary labels and hints are now legible at a glance',
+      'Sidebar footer carries a subtle credit above the theme toggle: "Developed by C/E Roy Joseph C. Alim"'
+    ]
+  },
+  {
     version: '1.4.16',
     date: '2026-05-29',
     title: 'Disclaimer screen fits without scrolling + high-contrast red warnings',
@@ -3638,7 +3667,7 @@ const CHANGELOG = [
       'Disclaimer screen now fits the desktop window without scrolling — the "I Understand" button is visible immediately',
       'Warning text on dark backgrounds is now high-contrast and easy to read (was hard-to-see dark red before)',
       'Property & Distribution notice now stays readable in both dark and light mode',
-      'Version sync with PWA 1.4.16 — no other functional change in the desktop app'
+      'Version sync with PWA 1.4.16 — no other functional change in Portable'
     ]
   },
   {
@@ -3891,7 +3920,7 @@ function _lsSave(key, data) {
     localStorage.setItem(key, JSON.stringify(data));
   } catch(e) {
     if (e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014)) {
-      showToast('Storage full. Your browser\'s local storage is full.\n\nPlease export a backup (ORB Log → Export JSON) then clear some old data to free up space.', 6500);
+      showToast('Storage full. Your browser\'s local storage is full.\n\nPlease export a backup (ORB Log → Export Records) then clear some old data to free up space.', 6500);
     } else {
       showToast('Save failed: ' + (e && e.message ? e.message : 'Unknown error'), 5500);
     }
@@ -5199,8 +5228,10 @@ function buildBookPages(entries, vesselName, officialNo) {
   // Flatten all formatted lines, preserving entry metadata per row.
   // _sigTank lines become inline sig rows (per-tank, C11-inv).
   // All other entries get one sig pair at end (_lastInEntry).
-  const _settings = loadSettings();
-  const _defaultCEName = (_settings.ceName || '').trim() || (loadCrew().find(c => c.rank === 'Chief Engineer') || {}).name || '';
+  // Historical-record rule: never substitute the current CE for missing
+  // entry.ceName — that mutation broke pre-v1.4.7 entries when the CE
+  // was renamed. A one-time migration in bootApp backfills the snapshot
+  // (see _migrateLegacyCeName).
   const allRows = [];
   entries.forEach(entry => {
     const lines = entry.formatted || [];
@@ -5230,7 +5261,7 @@ function buildBookPages(entries, vesselName, officialNo) {
               _sigTank: true,
               officer:   nextSig ? nextSig.officer  : (entry.officer || ''),
               rank:      nextSig ? nextSig.rank     : (entry.rank    || ''),
-              ceName:    nextSig ? nextSig.ceName   : (entry.ceName  || _defaultCEName || ''),
+              ceName:    nextSig ? nextSig.ceName   : (entry.ceName  || ''),
               entryDate: entry.date || '',
             });
           }
@@ -5246,7 +5277,7 @@ function buildBookPages(entries, vesselName, officialNo) {
             _isSigTankRow: true,
             _officer:  l.officer  || '',
             _rank:     l.rank     || '',
-            _ceName:   l.ceName   || _defaultCEName || '',
+            _ceName:   l.ceName   || '',
             _entryId:  entry.id,
             _officerSig: entry.officerSigImg || null,
             _ceSig:      entry.ceSigImg      || null,
@@ -5291,7 +5322,7 @@ function buildBookPages(entries, vesselName, officialNo) {
             text:    esc(sl),
             _officer:      entry.officer || '',
             _rank:         entry.rank    || '',
-            _ceName:       entry.ceName || _defaultCEName || '',
+            _ceName:       entry.ceName || '',
             _entryId:      entry.id,
             _lastInEntry:  isLast,
             _officerSig:   isLast ? (entry.officerSigImg || null) : null,
@@ -5371,7 +5402,12 @@ function buildBookPages(entries, vesselName, officialNo) {
   }
 
   function sigCell(dataUrl, roleLabel, officer, rank, entryId, sigType, entryDate) {
-    const editBtn = `<button class="book-sig-edit-btn" onclick="openBookSigModal('${entryId}','${sigType}')" title="Sign here">&#9998;</button>`;
+    // Signature lock (v1.4.17): once an entry is signed, the pen icon is hidden.
+    // Any correction must go through the M-correction workflow which produces a
+    // new audit-trailed entry rather than overwriting the original signature.
+    const editBtn = dataUrl
+      ? ''
+      : `<button class="book-sig-edit-btn" onclick="openBookSigModal('${entryId}','${sigType}')" title="Sign here">&#9998;</button>`;
     // Build full + short role tags; CSS picks one based on viewport
     const shortLabel = roleLabel === 'Officer in Charge' ? 'OIC' : (roleLabel === 'Chief Engineer' ? 'CE' : roleLabel);
     const roleFull   = `<span class="sig-role-full">${esc(roleLabel)}</span>`;
@@ -5846,7 +5882,9 @@ function renderEntryWizard() {
 function renderCatList() {
   const el = document.getElementById('cat-list');
   const codeMode = (localStorage.getItem('orb_actMode') === 'code');
-  el.innerHTML = CATEGORIES.map(c => {
+  // Hide categories nested under a parent — they surface inside the parent's panel.
+  const visible = CATEGORIES.filter(c => !c.parentId);
+  el.innerHTML = visible.map(c => {
     const display = (codeMode && c.code)
       ? `<span class="act-code" style="font-size:13px;font-weight:700;">${esc(c.code)}</span><span style="font-size:10px;color:var(--text3);margin-left:4px;">${esc(c.label)}</span>`
       : esc(c.label);
@@ -5862,6 +5900,22 @@ function renderActList(catId) {
   }
   const cat = CATEGORIES.find(c => c.id === catId);
   if (!cat) return;
+  // Parent category ("Other") — render each child as its own info card.
+  if (cat.isParent) {
+    const children = CATEGORIES.filter(c => c.parentId === cat.id);
+    let html = '';
+    if (cat.info) {
+      html += `<div class="act-info-panel" style="border-bottom:1px solid var(--border);">${esc(cat.info)}</div>`;
+    }
+    children.forEach(ch => {
+      html += `<div class="act-info-panel" style="border-bottom:1px solid var(--border);">
+        <div style="font-weight:700;color:var(--text1);margin-bottom:6px;font-family:var(--sans);font-size:13px;">${esc(ch.label)}</div>
+        <div>${esc(ch.info || '')}</div>
+      </div>`;
+    });
+    el.innerHTML = html || '<div class="act-info-panel">No references configured.</div>';
+    return;
+  }
   if (cat.info && (!cat.ops || !cat.ops.length)) {
     el.innerHTML = `<div class="act-info-panel">${esc(cat.info)}</div>`;
     return;
@@ -6031,6 +6085,7 @@ const CATEGORIES = [
     label: 'Ballast / Cleaning of Fuel Oil Tanks',
     code: null,
     ops: [],
+    parentId: 'other',
     info: 'Ballast water and fuel oil tank cleaning operations are covered under ORB Part II for oil tankers. For dry cargo vessels, these operations are generally not recorded in ORB Part I. Consult your vessel SMS and IOPP Certificate.'
   },
   {
@@ -6062,6 +6117,7 @@ const CATEGORIES = [
     label: 'Initial Entry',
     code: null,
     ops: [],
+    parentId: 'other',
     info: 'The initial entry records the opening state of all sludge, waste oil, and bilge holding tanks at the start of a new ORB volume. Record a Code C (Item 11) inventory for each applicable tank, and a Code I inventory for the Bilge Holding Tank. Date and sign each entry.'
   },
   {
@@ -6093,6 +6149,7 @@ const CATEGORIES = [
     label: 'SOOT',
     code: null,
     ops: [],
+    parentId: 'other',
     info: 'SOOT (Shipboard Oil Pollution Emergency Plan) entries relate to spill response procedures. SOOT itself is not an ORB Part I operation code. Actual spill/accidental discharge events are recorded under Code G. Consult your vessel SOPEP and company SMS for SOOT documentation requirements.'
   },
   {
@@ -6106,7 +6163,16 @@ const CATEGORIES = [
     label: 'Special Activities',
     code: 'I',
     ops: [],
+    parentId: 'other',
     info: 'Special activities may include cargo hold bilge water handling, pump room bilge (tankers), or vessel-specific operations not covered by standard codes C–H. Use Code I for additional remarks. Consult your Chief Engineer and vessel SMS for guidance on special operations recording.'
+  },
+  {
+    id: 'other',
+    label: 'Other',
+    code: null,
+    ops: [],
+    isParent: true,
+    info: 'Reference notes for ballast operations, initial entries, SOOT documentation, and special activities. These are not standalone ORB Part I codes — use the references below for guidance on where the underlying entries belong.'
   },
 ];
 
@@ -9780,12 +9846,35 @@ function bootApp() {
   if (sidebarVname) sidebarVname.textContent = vesselName;
   applyTheme(!!s.lightMode);
   seedSampleData();
+  // One-time migration: snapshot the current CE name onto any pre-v1.4.7
+  // entries that were saved before ceName was stored on the entry itself.
+  // After this, historical entries are immutable on subsequent CE renames.
+  _migrateLegacyCeName();
   renderDashboard();
   updateMasterClockDisplay();
   // Only fire the changelog modal once the disclaimer is acknowledged
   if (localStorage.getItem(STORE_DISC)) {
     checkChangelogModal();
   }
+}
+
+function _migrateLegacyCeName() {
+  try {
+    if (localStorage.getItem('orb_migrate_ce_v1') === '1') return;
+    const entries = loadEntries();
+    if (!entries.length) {
+      localStorage.setItem('orb_migrate_ce_v1', '1');
+      return;
+    }
+    const ce = (loadCrew().find(c => c.rank === 'Chief Engineer') || {}).name || '';
+    if (!ce) return; // wait until a CE is known; rerun next boot
+    let changed = 0;
+    entries.forEach(e => {
+      if (!e.ceName) { e.ceName = ce; changed++; }
+    });
+    if (changed > 0) saveEntries(entries);
+    localStorage.setItem('orb_migrate_ce_v1', '1');
+  } catch(e) { /* non-fatal — migration retries next boot */ }
 }
 
 // ============================================================
