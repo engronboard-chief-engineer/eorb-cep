@@ -923,6 +923,11 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 .rob-dashboard-table td { overflow: visible; white-space: normal; word-break: break-word; }
 .col-r { text-align: right !important; }
 .col-actions { white-space: nowrap; }
+.inv-oic-label-short { display: none; }
+@media (max-width: 480px) {
+  .inv-oic-label { display: none; }
+  .inv-oic-label-short { display: inline; }
+}
 
 /* Progress bar */
 .rob-bar { height: 6px; background: var(--bg4); border-radius: 10px; overflow: hidden; min-width: 60px; }
@@ -2870,7 +2875,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.14 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.15 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3414,6 +3419,25 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 </div>
 
 <!-- ============================================================
+     MODAL: GENERIC CONFIRM (replaces native confirm() dialogs)
+     ============================================================ -->
+<div class="modal-overlay hidden" id="confirm-modal" style="z-index:1200;">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-head">
+      <h3 id="confirm-modal-title">Confirm</h3>
+      <button class="modal-close" onclick="closeModal('confirm-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="confirm-modal-body" style="font-size:14px;color:var(--text2);line-height:1.6;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" id="confirm-modal-cancel" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-modal-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      MODAL: ROB HISTORY
      ============================================================ -->
 <div class="modal-overlay hidden" id="history-modal">
@@ -3563,7 +3587,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.14-portable';
+const APP_VERSION = '1.4.15-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3572,6 +3596,20 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.15',
+    date: '2026-05-29',
+    title: 'Bug fixes: dialogs, valve gate, bunkering data, truncation',
+    items: [
+      'Equipment failure (Code F) entries can now be created while the OWS overboard valve is unsealed',
+      'Bunkering tank quantities captured immediately as you type — no longer lost if Preview clicked before tabbing out',
+      'Tank names no longer truncate in the Tank Editor — full name always visible',
+      'Empty source tank shows ⚠ warning chip when selected',
+      'Code G Accident item 22 now shows full label: "Time of accidental discharge or occurrence"',
+      'All confirmation dialogs replaced with non-blocking in-app modals — no more focus-freeze',
+      'Equipment notes column now wraps long text instead of overflowing'
+    ]
+  },
   {
     version: '1.4.14',
     date: '2026-05-29',
@@ -4013,8 +4051,11 @@ const TAB_TITLES = {
 };
 function switchTab(name) {
   if (name !== 'entry' && _formDirty) {
-    if (!confirm('You have unsaved changes in the current form. Discard and continue?')) return;
-    _formDirty = false;
+    showConfirm('Unsaved Changes', 'You have unsaved changes in the current form. Discard and continue?', 'Discard', 'btn-danger', function() {
+      _formDirty = false;
+      switchTab(name);
+    });
+    return;
   }
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -4500,10 +4541,13 @@ function saveCrew() {
 }
 
 function deleteCrew(id) {
-  if (!confirm('Remove this crew member?')) return;
-  const crew = loadCrew().filter(c => c.id !== id);
-  localStorage.setItem(STORE_CREW, JSON.stringify(crew));
-  renderCrew();
+  const member = loadCrew().find(c => c.id === id);
+  const name = member ? member.name : 'this crew member';
+  showConfirm('Remove Crew Member', 'Remove <strong>' + esc(name) + '</strong> from the roster?', 'Remove', 'btn-danger', function() {
+    const crew = loadCrew().filter(c => c.id !== id);
+    localStorage.setItem(STORE_CREW, JSON.stringify(crew));
+    renderCrew();
+  });
 }
 
 function crewOptsForRank(selectedName) {
@@ -4541,7 +4585,7 @@ function renderEquipment() {
       <td><strong>${esc(e.name)}</strong>${e.builtin ? ' <span class="badge badge-blue" style="margin-left:6px;">built-in</span>' : ''}</td>
       <td><span class="badge badge-amber">${esc(typeLabel[e.type] || e.type)}</span></td>
       <td class="mono" style="text-align:right;">${fmt2(e.rate)}</td>
-      <td class="muted" style="font-size:12px;">${esc(e.notes || '')}</td>
+      <td class="muted" style="font-size:12px;word-break:break-word;white-space:normal;">${esc(e.notes || '')}</td>
       <td style="white-space:nowrap;">
         <button class="btn btn-secondary btn-sm" onclick="openEquipmentModal('${e.id}')" style="margin-right:4px;">Edit</button>
         ${e.builtin ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>`}
@@ -4598,9 +4642,10 @@ function deleteEquipment(id) {
   const e = list.find(x => x.id === id);
   if (!e) return;
   if (e.builtin) { showToast('Built-in equipment cannot be deleted. You can edit its rated capacity instead.', 5500); return; }
-  if (!confirm('Delete "' + e.name + '"? This cannot be undone.')) return;
-  saveEquipmentData(list.filter(x => x.id !== id));
-  renderEquipment();
+  showConfirm('Delete Equipment', 'Delete &ldquo;<strong>' + esc(e.name) + '</strong>&rdquo;? This cannot be undone.', 'Delete', 'btn-danger', function() {
+    saveEquipmentData(list.filter(x => x.id !== id));
+    renderEquipment();
+  });
 }
 
 // Lookup helper used by transfer-rate validation
@@ -4645,7 +4690,7 @@ function renderTankEditor() {
 
   function buildEditorRows(tList) {
     return tList.map(t => `<tr>
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><strong>${esc(t.name)}</strong>${t.isBilgeWell ? ' <span class="badge badge-blue" style="margin-left:6px;">Well</span>' : ''}</td>
+      <td style="word-break:break-word;white-space:normal;"><strong>${esc(t.name)}</strong>${t.isBilgeWell ? ' <span class="badge badge-blue" style="margin-left:6px;">Well</span>' : ''}</td>
       <td><span class="badge ${typeBadgeClass(t.type)}">${TYPE_LABELS[t.type]||t.type}</span></td>
       <td class="mono" style="text-align:right;">${t.isBilgeWell ? '<span style="color:var(--text3)">—</span>' : fmt2(t.capacity)}</td>
       <td class="mono amber" style="text-align:right;">${t.isBilgeWell ? '<span style="color:var(--text3)">—</span>' : fmt2(t.rob)}</td>
@@ -4917,9 +4962,11 @@ function confirmDeleteTank() {
 }
 
 function resetDefaultTanks(type) {
-  if (!confirm('This will replace all tanks with ' + (type==='dry'?'Dry Fleet':'Tanker') + ' defaults. Continue?')) return;
-  saveTanks(type === 'dry' ? dryFleetDefaults() : tankerDefaults());
-  renderTankEditor();
+  const label = type === 'dry' ? 'Dry Fleet' : 'Tanker';
+  showConfirm('Reset Tanks', 'This will replace all tanks with <strong>' + label + '</strong> defaults. Continue?', 'Reset', 'btn-danger', function() {
+    saveTanks(type === 'dry' ? dryFleetDefaults() : tankerDefaults());
+    renderTankEditor();
+  });
 }
 
 // ============================================================
@@ -4969,28 +5016,33 @@ function viewEntry(id) {
 }
 
 function deleteEntry(id) {
-  if (!confirm('Delete this entry? Cannot be undone.')) return;
-  const entries = loadEntries().filter(e => e.id !== id);
-  saveEntries(entries);
-  renderLog();
+  showConfirm('Delete Entry', 'Delete this entry from the ORB log? This cannot be undone.', 'Delete', 'btn-danger', function() {
+    const entries = loadEntries().filter(e => e.id !== id);
+    saveEntries(entries);
+    renderLog();
+  });
 }
 
 function clearLog() {
   const entries = loadEntries();
   if (!entries.length) { showToast('No entries to clear.'); return; }
-  if (!confirm('Clear ALL ' + entries.length + ' ORB log entries?\n\nA backup file will be downloaded automatically before clearing.')) return;
-  if (!confirm('Are you sure? This cannot be undone.')) return;
-  // Auto-export backup before clearing
-  try {
-    const data = { tanks: getTanks(), entries: entries, settings: loadSettings(), exportedAt: now(), note: 'Auto-backup before Clear All' };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'orb-backup-before-clear-' + new Date().toISOString().slice(0,10) + '.json';
-    a.click();
-  } catch(e) { /* backup failed — still allow clear */ }
-  saveEntries([]);
-  renderLog();
+  showConfirm(
+    'Clear All Entries',
+    'Clear <strong>all ' + entries.length + ' ORB log entries</strong>?<br><br>A backup file will be downloaded automatically before clearing. This cannot be undone.',
+    'Clear All', 'btn-danger',
+    function() {
+      try {
+        const data = { tanks: getTanks(), entries: entries, settings: loadSettings(), exportedAt: now(), note: 'Auto-backup before Clear All' };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'orb-backup-before-clear-' + new Date().toISOString().slice(0,10) + '.json';
+        a.click();
+      } catch(e) { /* backup failed — still allow clear */ }
+      saveEntries([]);
+      renderLog();
+    }
+  );
 }
 
 function exportLog() {
@@ -6019,10 +6071,10 @@ let _formDirty = false;
 
 function guardDirtyForm(proceed) {
   if (!_formDirty) { proceed(); return; }
-  if (confirm('You have unsaved changes in the current form. Discard and continue?')) {
+  showConfirm('Unsaved Changes', 'You have unsaved changes in the current form. Discard and continue?', 'Discard', 'btn-danger', function() {
     _formDirty = false;
     proceed();
-  }
+  });
 }
 
 function wizReset() {
@@ -6116,7 +6168,7 @@ function buildWizForm(op) {
                 <th style="padding:7px 10px;text-align:right;font-family:var(--sans);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);width:15%;">Current ROB</th>
                 <th style="padding:7px 10px;font-family:var(--sans);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);width:15%;">New ROB (m3)</th>
                 <th style="padding:7px 10px;font-family:var(--sans);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);width:14%;">Capacity (m3)</th>
-                <th style="padding:7px 10px;font-family:var(--sans);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--amber);width:21%;" colspan="2">Officer-in-Charge</th>
+                <th style="padding:7px 10px;font-family:var(--sans);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--amber);width:21%;" colspan="2"><span class="inv-oic-label">Officer-in-Charge</span><span class="inv-oic-label-short">Officer</span></th>
               </tr>
             </thead>
             <tbody id="wf-inv-rows">
@@ -6919,7 +6971,7 @@ function buildMissedSubForm(opId) {
       <th style="padding:6px 8px;text-align:right;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Current ROB</th>
       <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);">New ROB (m3)</th>
       <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Capacity</th>
-      <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);">Officer-in-Charge</th>
+      <th style="padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);"><span class="inv-oic-label">Officer-in-Charge</span><span class="inv-oic-label-short">Officer</span></th>
       </tr></thead><tbody id="wf-inv-rows">${rows}</tbody></table>
       <div class="form-group" style="max-width:300px;"><label class="form-label">Chief Engineer Name</label><input class="form-input" id="wf-inv-ce-name" value="${esc(ceName)}"></div>`;
   } else if (op.id === 'C11-coll') {
@@ -7160,11 +7212,11 @@ function renderBunkTanks() {
       </div>
       <div style="flex:1;min-width:100px;">
         <label class="form-label">Qty Added (MT)</label>
-        <input class="form-input" type="number" min="0" step="0.1" value="${bt.qtyAdded}" onchange="wiz.bunkTanks[${i}].qtyAdded=this.value">
+        <input class="form-input" type="number" min="0" step="0.1" value="${bt.qtyAdded}" oninput="wiz.bunkTanks[${i}].qtyAdded=this.value" onchange="wiz.bunkTanks[${i}].qtyAdded=this.value">
       </div>
       <div style="flex:1;min-width:100px;">
         <label class="form-label">Qty Now (MT)</label>
-        <input class="form-input" type="number" min="0" step="0.1" value="${bt.qtyNow}" onchange="wiz.bunkTanks[${i}].qtyNow=this.value">
+        <input class="form-input" type="number" min="0" step="0.1" value="${bt.qtyNow}" oninput="wiz.bunkTanks[${i}].qtyNow=this.value" onchange="wiz.bunkTanks[${i}].qtyNow=this.value">
       </div>
       <div>
         <button class="btn btn-danger btn-sm" onclick="removeBunkTank(${i})" style="margin-bottom:2px;">X</button>
@@ -7252,7 +7304,8 @@ function updateTankRobChip(selectId) {
   const pct = tank.capacity > 0 ? Math.min(100, (tank.rob / tank.capacity) * 100) : null;
   const color = pct === null ? 'var(--blue)' : pct >= 80 ? 'var(--red)' : pct >= 50 ? 'var(--amber)' : 'var(--green)';
   chip.style.display = 'block';
-  chip.innerHTML = `<span style="color:var(--text3);font-size:10px;font-family:var(--sans);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Current ROB</span>&nbsp;&nbsp;<span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${color};">${fmt2(tank.rob)} ${tank.unit}</span>${tank.capacity>0?`<span style="color:var(--text3);font-size:11px;"> / ${fmt2(tank.capacity)} ${tank.unit} &nbsp;(${pct.toFixed(0)}%)</span>`:''}`;
+  const emptyWarn = (selectId === 'wf-src' && tank.rob === 0) ? `<span style="color:var(--red);font-size:11px;margin-left:8px;">&#9888; Source tank is empty</span>` : '';
+  chip.innerHTML = `<span style="color:var(--text3);font-size:10px;font-family:var(--sans);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Current ROB</span>&nbsp;&nbsp;<span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${color};">${fmt2(tank.rob)} ${tank.unit}</span>${tank.capacity>0?`<span style="color:var(--text3);font-size:11px;"> / ${fmt2(tank.capacity)} ${tank.unit} &nbsp;(${pct.toFixed(0)}%)</span>`:''}${emptyWarn}`;
   if (selectId === 'wf-src') {
     const capEl = document.getElementById('wf-cap');
     if (capEl) capEl.value = tank.capacity > 0 ? Number(tank.capacity).toFixed(3) : '';
@@ -7918,7 +7971,7 @@ function _wizPreviewImpl() {
     if (getT('wf-equip')) lines.push({ date:'',code:'',item:'',text:'Equipment: ' + getT('wf-equip') });
   } else if (op.id === 'G-acc') {
     lines = [
-      { date: dateStr, code: 'G', item: '22', text: (startT || 'hh:mm') + ' H LT' },
+      { date: dateStr, code: 'G', item: '22', text: 'Time of accidental discharge or occurrence: ' + (startT || 'hh:mm') + ' H LT' },
       { date: '',      code: '',  item: '23', text: 'Place or Position: ' + (buildPos('wf-pos-start') || 'unknown') },
       { date: '',      code: '',  item: '24', text: 'Type: ' + (getT('wf-reason')||'unknown') + (qty ? ', Approx. ' + fmt2(qty) + ' m³' : '') },
       { date: '',      code: '',  item: '25', text: 'Circumstances: ' + (remarks || 'describe circumstances') },
@@ -8386,7 +8439,7 @@ function _wizPreviewImpl() {
   // of a past operation, not a current entry). Corrections are also exempt.
   let valveOpenBlock = '';
   let valveOpenViolation = false;
-  const _valveExemptOps = ['I-seal', 'D-ows', 'E-ows', 'I-missed'];
+  const _valveExemptOps = ['I-seal', 'D-ows', 'E-ows', 'I-missed', 'F-fail', 'F-rest'];
   if (!_valveExemptOps.includes(op.id) && !wiz.isCorrectionOf && owsValveState() === 'unsealed') {
     valveOpenViolation = true;
     valveOpenBlock = `<div style="margin-bottom:12px;padding:10px 12px;background:rgba(224,0,85,0.08);border-left:3px solid #e05;border-radius:3px;">
@@ -9459,14 +9512,20 @@ function dismissUpdateBanner() {
 // ============================================================
 // Force-inject sample data (callable anytime from sidebar button)
 function loadSampleDataNow() {
-  if (!confirm('Load sample data?\n\nThis will delete ALL your current entries and replace them with sample records. This cannot be undone.')) return;
-  localStorage.removeItem(STORE_SEEDED);
-  localStorage.removeItem(STORE_ENTRIES);
-  localStorage.removeItem(STORE_CREW);
-  seedSampleData();
-  renderDashboard();
-  switchTab('log');
-  showToast('Sample data loaded — 10 actual ORB entries added (MEPC.1/Circ.736 format).');
+  showConfirm(
+    'Load Sample Data',
+    'This will delete <strong>all your current entries</strong> and replace them with sample records. This cannot be undone.',
+    'Load Samples', 'btn-danger',
+    function() {
+      localStorage.removeItem(STORE_SEEDED);
+      localStorage.removeItem(STORE_ENTRIES);
+      localStorage.removeItem(STORE_CREW);
+      seedSampleData();
+      renderDashboard();
+      switchTab('log');
+      showToast('Sample data loaded — 10 actual ORB entries added (MEPC.1/Circ.736 format).');
+    }
+  );
 }
 
 // SAMPLE DATA SEED (runs once; does not overwrite user data)
@@ -9846,6 +9905,20 @@ function showToast(msg, durationMs) {
   el.classList.add('visible');
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function() { el.classList.remove('visible'); }, durationMs || 3500);
+}
+
+// Non-blocking replacement for confirm() — avoids Electron focus/field freeze.
+function showConfirm(title, message, okLabel, okClass, onConfirm) {
+  var modal = document.getElementById('confirm-modal');
+  if (!modal) { if (confirm(message)) onConfirm(); return; }
+  document.getElementById('confirm-modal-title').textContent = title || 'Confirm';
+  document.getElementById('confirm-modal-body').innerHTML = message || '';
+  var okBtn = document.getElementById('confirm-modal-ok');
+  okBtn.textContent = okLabel || 'Confirm';
+  okBtn.className = 'btn ' + (okClass || 'btn-danger');
+  okBtn.onclick = function() { closeModal('confirm-modal'); onConfirm(); };
+  document.getElementById('confirm-modal-cancel').onclick = function() { closeModal('confirm-modal'); };
+  openModal('confirm-modal');
 }
 </script>
 
