@@ -2870,7 +2870,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.13 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.14 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3563,7 +3563,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.13-portable';
+const APP_VERSION = '1.4.14-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3572,6 +3572,16 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.14',
+    date: '2026-05-29',
+    title: 'Fix: bunkering ISO Specification now matches what you typed',
+    items: [
+      'Bunkering entries (Code H — HFO, VLSFO, ULSFO, LSMGO, MDO, MGO) were incorrectly stamping every entry as "ISO-8754" in the preview and the Record Book, ignoring whatever you typed in the ISO Specification field',
+      'The ISO Specification field now reads through cleanly — type "ISO-2017 LSMGO" and the entry shows "ISO-2017 LSMGO", not "ISO-8754"',
+      'Affects every entry made with the H- bunkering wizard since launch. Existing entries were not rewritten — only new entries from v1.4.14 onward are correct'
+    ]
+  },
   {
     version: '1.4.13',
     date: '2026-05-28',
@@ -7937,7 +7947,14 @@ function _wizPreviewImpl() {
         robChanges.push({ tankId: tk.id, before: tk.rob, after: newRob, reason: 'Bunkering ' + grade + ' (Code H)' });
       }
     });
-    const gradeStr = isLube ? grade : (iso ? 'ISO-8754 ' + grade + (sulphur ? ' ' + sulphur + '% S' : '') : grade);
+    const gradeStr = (() => {
+      if (isLube) return grade;
+      if (!iso) return grade;
+      const isoUC = iso.toUpperCase().trim();
+      const gradeUC = grade.toUpperCase();
+      const isoCore = isoUC.endsWith(' ' + gradeUC) ? isoUC.slice(0, -gradeUC.length - 1).trim() : isoUC;
+      return isoCore + ' ' + grade + (sulphur ? ' ' + sulphur + '% S' : '');
+    })();
     lines = [
       { date: dateStr, code: 'H', item: '26.1', text: port },
       { date: '',      code: '',  item: '26.2', text: 'Start ' + fmtBunkDT(startT) + ',  Stop ' + fmtBunkDT(stopT) },
