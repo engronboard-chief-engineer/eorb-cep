@@ -122,9 +122,8 @@ body {
 #disclaimer-modal {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(0,0,0,0.95);
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: 16px;
-  overflow-y: auto;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
 }
 #disclaimer-modal.hidden { display: none; }
 
@@ -134,9 +133,10 @@ body {
   border-top: 3px solid var(--amber);
   border-radius: var(--radius-lg);
   max-width: 640px; width: 100%;
-  padding: 40px;
+  max-height: calc(100vh - 40px);
+  padding: 22px 32px 24px;
   box-shadow: var(--shadow-lg);
-  margin: auto 0;
+  display: flex; flex-direction: column;
 }
 .disc-box .disc-header {
   font-family: var(--sans);
@@ -145,51 +145,71 @@ body {
   letter-spacing: 0.2em;
   color: var(--amber);
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .disc-box h2 {
   font-family: var(--sans);
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
   line-height: 1.2;
 }
 .disc-box p {
   color: var(--text2);
-  font-size: 14px;
-  line-height: 1.7;
-  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 10px;
 }
 .disc-box ul {
-  margin: 12px 0 20px 20px;
+  margin: 6px 0 12px 20px;
   color: var(--text2);
-  font-size: 13px;
-  line-height: 1.8;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.disc-box ul li { margin-bottom: 2px; }
+.disc-box .disc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-right: -6px;
+}
+.disc-box .disc-foot {
+  flex: 0 0 auto;
+  padding-top: 14px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
 }
 .disc-box .disc-warning {
-  background: var(--red-dim);
-  border: 1px solid var(--red2);
+  background: rgba(252,129,129,0.16);
+  border: 1px solid rgba(252,129,129,0.55);
   border-radius: var(--radius-sm);
-  padding: 12px 16px;
-  margin-bottom: 24px;
-  font-size: 13px;
-  color: var(--error-text);
-  line-height: 1.6;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: #ffd0d0;
+  line-height: 1.5;
 }
-.disc-box .disc-warning strong { color: var(--red2); }
+.disc-box .disc-warning strong { color: #ff8a8a; }
+body.light .disc-box .disc-warning { background: rgba(220,38,38,0.10); border-color: rgba(220,38,38,0.45); color: #b91c1c; }
+body.light .disc-box .disc-warning strong { color: #991b1b; }
+.disc-box .disc-warning-strong { background: rgba(255,107,154,0.14); border-color: rgba(255,107,154,0.55); color: #ffc0d6; }
+.disc-box .disc-warning-strong strong { color: #ff8fb4; }
+body.light .disc-box .disc-warning-strong { background: rgba(224,0,85,0.08); border-color: rgba(224,0,85,0.45); color: #c70042; }
+body.light .disc-box .disc-warning-strong strong { color: #9b0036; }
 .disc-confirm {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
 }
-.disc-confirm input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--amber); cursor: pointer; }
-.disc-confirm label { color: var(--text); font-size: 14px; cursor: pointer; }
+.disc-confirm input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--amber); cursor: pointer; flex-shrink: 0; }
+.disc-confirm label { color: var(--text); font-size: 13px; cursor: pointer; line-height: 1.4; }
 .btn-disc {
   display: block; width: 100%;
   background: var(--amber);
   color: var(--btn-dark-text);
   border: none;
-  padding: 14px 24px;
+  padding: 12px 22px;
   font-family: var(--sans);
   font-size: 15px;
   font-weight: 700;
@@ -2415,16 +2435,26 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
     -webkit-overflow-scrolling: touch;
     padding: 18px 14px 28px;
   }
-  .disc-box, .act-box {
+  .disc-box {
+    padding: 22px 20px 24px;
+    max-width: 100%;
+    max-height: none;
+    border-radius: var(--radius);
+    display: block;
+  }
+  .act-box {
     padding: 22px 20px 24px;
     max-width: 100%;
     border-radius: var(--radius);
   }
+  .disc-box .disc-scroll { overflow: visible; padding-right: 0; margin-right: 0; }
+  .disc-box .disc-foot { border-top: 0; padding-top: 0; margin-top: 0; }
   .disc-box h2 { font-size: 22px; margin-bottom: 18px; }
-  .disc-box p { font-size: 14px; }
-  .disc-box ul { font-size: 13px; margin: 10px 0 16px 18px; }
-  .disc-box .disc-warning { padding: 11px 13px; margin-bottom: 18px; font-size: 13px; }
+  .disc-box p { font-size: 14px; line-height: 1.7; }
+  .disc-box ul { font-size: 13px; margin: 10px 0 16px 18px; line-height: 1.8; }
+  .disc-box .disc-warning { padding: 11px 13px; margin-bottom: 18px; font-size: 13px; line-height: 1.6; }
   .disc-confirm { margin-bottom: 18px; }
+  .disc-confirm label { font-size: 14px; line-height: 1.5; }
   .btn-disc { padding: 14px 20px; font-size: 15px; min-height: 48px; }
   .act-box h2 { font-size: 20px; }
 
@@ -2761,27 +2791,31 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
 <div id="disclaimer-modal">
   <div class="disc-box">
     <div class="disc-header">Educational Practice Simulator</div>
-    <h2>Oil Record Book<br>Practice System</h2>
-    <p>This system is a <strong style="color:var(--amber)">familiarization and practice tool only</strong>, designed to help marine engineers understand ORB logic, transfer sequences, tank ROB tracking, and MARPOL awareness.</p>
-    <div class="disc-warning">
-      <strong>IMPORTANT:</strong> This is NOT certified ORB software. It is NOT PSC-approved. Entries generated here are educational samples only. They must NOT be used as actual Oil Record Book entries onboard any vessel.
+    <h2>Oil Record Book Practice System</h2>
+    <div class="disc-scroll">
+      <p>This system is a <strong style="color:var(--amber)">familiarization and practice tool only</strong>, designed to help marine engineers understand ORB logic, transfer sequences, tank ROB tracking, and MARPOL awareness.</p>
+      <div class="disc-warning">
+        <strong>IMPORTANT:</strong> This is NOT certified ORB software. It is NOT PSC-approved. Entries generated here are educational samples only. They must NOT be used as actual Oil Record Book entries onboard any vessel.
+      </div>
+      <p>Actual ORB entries must follow your vessel's procedures, company SMS, MARPOL Annex I regulations, flag state requirements, and Chief Engineer instructions.</p>
+      <ul>
+        <li>Tank arrangements vary by vessel type, company, and flag state</li>
+        <li>ORB codes and item numbers must match your IOPP Certificate</li>
+        <li>All actual entries must be signed by the responsible officer</li>
+        <li>Completed pages must be signed by the Master</li>
+      </ul>
+      <div class="disc-warning disc-warning-strong">
+        <strong>Property &amp; Distribution Notice.</strong>
+        This application is the sole property of <strong>Chief Engineer Pro</strong> under the Fast Track System. Redistribution, resale, sharing of activation tokens, or any form of unauthorised copying is prohibited. Each install is bound to its activation email and device fingerprint &mdash; we can detect unauthorised use through fingerprinting and activation telemetry, and licences for confirmed illegal copies are revoked without notice or refund.
+      </div>
     </div>
-    <p>Actual ORB entries must follow your vessel's procedures, company SMS, MARPOL Annex I regulations, flag state requirements, and Chief Engineer instructions.</p>
-    <ul>
-      <li>Tank arrangements vary by vessel type, company, and flag state</li>
-      <li>ORB codes and item numbers must match your IOPP Certificate</li>
-      <li>All actual entries must be signed by the responsible officer</li>
-      <li>Completed pages must be signed by the Master</li>
-    </ul>
-    <div class="disc-warning" style="background:rgba(224,0,85,0.08);border-color:rgba(224,0,85,0.4);color:#c70042;">
-      <strong>Property &amp; Distribution Notice.</strong>
-      This application is the sole property of <strong>Chief Engineer Pro</strong> under the Fast Track System. Redistribution, resale, sharing of activation tokens, or any form of unauthorised copying is prohibited. Each install is bound to its activation email and device fingerprint &mdash; we can detect unauthorised use through fingerprinting and activation telemetry, and licences for confirmed illegal copies are revoked without notice or refund.
+    <div class="disc-foot">
+      <div class="disc-confirm">
+        <input type="checkbox" id="disc-check" onchange="const b=document.getElementById('disc-btn'); b.classList.toggle('active', this.checked); b.disabled=!this.checked;">
+        <label for="disc-check">I understand this is for educational practice only and will not use these entries onboard</label>
+      </div>
+      <button class="btn-disc" id="disc-btn" onclick="acknowledgeDisclaimer()" disabled>I Understand — Enter Practice System</button>
     </div>
-    <div class="disc-confirm">
-      <input type="checkbox" id="disc-check" onchange="const b=document.getElementById('disc-btn'); b.classList.toggle('active', this.checked); b.disabled=!this.checked;">
-      <label for="disc-check">I understand this is for educational practice only and will not use these entries onboard</label>
-    </div>
-    <button class="btn-disc" id="disc-btn" onclick="acknowledgeDisclaimer()" disabled>I Understand — Enter Practice System</button>
   </div>
 </div>
 
@@ -2875,7 +2909,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.15 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.16 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3587,7 +3621,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.15-portable';
+const APP_VERSION = '1.4.16-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3596,6 +3630,17 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.16',
+    date: '2026-05-29',
+    title: 'Disclaimer screen fits without scrolling + high-contrast red warnings',
+    items: [
+      'Disclaimer screen now fits the desktop window without scrolling — the "I Understand" button is visible immediately',
+      'Warning text on dark backgrounds is now high-contrast and easy to read (was hard-to-see dark red before)',
+      'Property & Distribution notice now stays readable in both dark and light mode',
+      'Version sync with PWA 1.4.16 — no other functional change in the desktop app'
+    ]
+  },
   {
     version: '1.4.15',
     date: '2026-05-29',
