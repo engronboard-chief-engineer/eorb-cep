@@ -58,6 +58,30 @@ function getFingerprint() {
   return hash;
 }
 
+// Binding fingerprint for the CEP license seal (v1.4.19 security hotfix).
+// DELIBERATELY narrower than getFingerprint(): only the MachineGuid + platform.
+// hostname and cpuModel are EXCLUDED so a PC rename or CPU/board swap never
+// forces a legitimate customer to reactivate. The MachineGuid is the canonical
+// per-OS-install identifier (64-bit registry view on Windows), so it alone is a
+// sufficient machine identity for sealing license.dat. Keep this separate from
+// getFingerprint() -- that one stays as-is for the diagnostics log.
+let _cachedBind = null;
+
+function getBindingFingerprint() {
+  if (_cachedBind) return _cachedBind;
+
+  let machineId = '';
+  try {
+    machineId = require('node-machine-id').machineIdSync({ original: true }) || '';
+  } catch (err) {
+    machineId = 'fallback-' + os.hostname();
+  }
+
+  const combined = [machineId, process.platform].join('|');
+  _cachedBind = crypto.createHash('sha256').update(combined).digest('hex');
+  return _cachedBind;
+}
+
 // For debugging only -- never exposed to renderer.
 function getFingerprintInputs() {
   let machineId = 'err';
@@ -70,4 +94,4 @@ function getFingerprintInputs() {
   };
 }
 
-module.exports = { getFingerprint, getFingerprintInputs };
+module.exports = { getFingerprint, getBindingFingerprint, getFingerprintInputs };

@@ -279,6 +279,93 @@ function clearPortableLicense(usbDataDir) {
   return true;
 }
 
+// ============================================================
+// CEP EMAIL-REGISTRATION PATH (machine-bound seal) — v1.4.19 security hotfix
+// ============================================================
+// Customers activate by entering their CEP email; the MAIN process performs the
+// n8n registration and seals the result to THIS machine. The seal is keyed to
+// machine.getBindingFingerprint() (MachineGuid+platform), so a copied
+// cep-license.dat / database.db / %APPDATA% is undecryptable on another machine.
+// The renderer never talks to n8n and cannot mint this license -- main is the
+// sole authority.
+
+const ORB_ACTIVATE_URL = 'https://n8n.srv1083339.hstgr.cloud/webhook/orb-activate';
+
+// Register an email against the existing n8n activation webhook. Mirrors the
+// exact payload the renderer used (fingerprint/fp8 blank, appVersion
+// 'orb-portable') so the server behaves identically -- no n8n change, no
+// device-limit migration risk. Returns { ok, token, email } | { ok:false, error }.
+async function registerEmailOnline(email, clientVersion) {
+  const norm = String(email || '').toLowerCase().trim();
+  if (!norm || norm.indexOf('@') < 1) return { ok: false, error: 'invalid_email' };
+  const payload = {
+    email: norm,
+    fingerprint: '',
+    fp8: '',
+    appVersion: 'orb-portable',
+    clientVersion: clientVersion || ''
+  };
+  const resp = await _httpsPostJson(ORB_ACTIVATE_URL, payload, 15000);
+  if (!resp.ok) return { ok: false, error: resp.error || 'network', detail: resp.detail };
+  const b = resp.body || {};
+  if (!b.success || !b.token) return { ok: false, error: b.error || 'server_rejected' };
+  return { ok: true, token: b.token, email: norm, tier: b.tier || null };
+}
+
+function cepLicensePath(dir) {
+  return path.join(dir, 'cep-license.dat');
+}
+
+// Seal {email, token, ...} to THIS machine's binding fingerprint and write it.
+function writeEmailLicense(userDataDir, { email, token }) {
+  const bindFp = machine.getBindingFingerprint();
+  const lic = {
+    edition: 'cep-email',
+    email: String(email || '').toLowerCase().trim(),
+    token: token || null,
+    customer_id: wm.customerId,
+    build_id: wm.buildId,
+    watermark: wm.watermark,
+    machine_hash: bindFp,
+    registered_at: new Date().toISOString(),
+    expiry: null
+  };
+  const blob = enc.encryptJSON(lic, bindFp);
+  if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
+  fs.writeFileSync(cepLicensePath(userDataDir), blob, 'utf8');
+  return lic;
+}
+
+// Decrypt + verify the sealed CEP email license. Returns the license object or
+// null. Null when the seal was made on a different machine (decrypt fails or
+// machine_hash mismatch) -- which forces reactivation.
+function loadEmailLicense(userDataDir) {
+  const p = cepLicensePath(userDataDir);
+  if (!fs.existsSync(p)) return null;
+  const bindFp = machine.getBindingFingerprint();
+  try {
+    const blob = fs.readFileSync(p, 'utf8');
+    const lic = enc.decryptJSON(blob, bindFp);
+    if (!lic || lic.machine_hash !== bindFp) return null;
+    if (!lic.email) return null;
+    return lic;
+  } catch (_) {
+    return null;
+  }
+}
+
+function hasValidEmailLicense(userDataDir) {
+  return loadEmailLicense(userDataDir) !== null;
+}
+
+function clearEmailLicense(userDataDir) {
+  const p = cepLicensePath(userDataDir);
+  if (fs.existsSync(p)) {
+    try { fs.unlinkSync(p); return true; } catch (_) { return false; }
+  }
+  return true;
+}
+
 module.exports = {
   // legacy CEP installer path
   expectedLicenseKeyFor,
@@ -287,6 +374,12 @@ module.exports = {
   loadLicense,
   hasValidLicense,
   clearLicense,
+  // CEP email-registration path (machine-bound seal)
+  registerEmailOnline,
+  writeEmailLicense,
+  loadEmailLicense,
+  hasValidEmailLicense,
+  clearEmailLicense,
   // portable USB path
   activateOnline,
   writePortableLicense,

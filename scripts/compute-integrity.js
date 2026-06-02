@@ -15,6 +15,7 @@ const TARGETS = [
   'ui/index.html',
   'ui/app.js',
   'ui/activation.html',
+  'ui/cep-activate.html',
   'electron/main.js',
   'electron/preload.js',
   'electron/db.js',

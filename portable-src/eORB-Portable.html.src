@@ -2923,7 +2923,7 @@ body.light .btn-danger:hover { background: var(--red-dim); color: var(--red2); }
       </button>
       <div class="topbar-page-title" id="topbar-page-title">ROB Dashboard</div>
       <div class="topbar-right">
-        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.17 · Portable Edition</div>
+        <div class="app-version-chip" id="app-version-chip" title="Application version">v1.4.19 · Portable Edition</div>
         <div class="disc-banner">MARPOL / Educational</div>
       </div>
     </div>
@@ -3635,7 +3635,7 @@ const _schV = [51,54,54,49];
 // activation webhook so the server can issue an email-bound (not device-bound) token
 const _fmtV = 'orb-portable';
 // Public app version — shown in topbar, fed into activation payload, gates changelog modal
-const APP_VERSION = '1.4.17-portable';
+const APP_VERSION = '1.4.19-portable';
 // Portable Edition: re-check the license online every 180 days (6 months).
 const PORTABLE_RECHECK_DAYS = 180;
 const STORE_CHECKED_AT = 'orb_portable_checked_at';
@@ -3644,6 +3644,18 @@ const STORE_CHECKED_AT = 'orb_portable_checked_at';
 // once per user per APP_VERSION at startup. Bumping APP_VERSION without an
 // entry below = silent (no modal). Newest-first order.
 const CHANGELOG = [
+  {
+    version: '1.4.19',
+    date: '2026-06-02',
+    title: 'Security hotfix: per-machine licensing, plus backup, print, and theme fixes',
+    items: [
+      'Activation is now bound to this computer and verified by the application itself before it opens. A copied installation or copied data folder will no longer open on a different machine — it simply asks the new computer to activate',
+      'Export Records now includes the crew roster and equipment configuration — moving a backup between editions no longer loses officers or pump capacities. Older backups (v1.4.17 and earlier) still import; missing fields are skipped and existing data is left untouched',
+      'Backup files now carry a schemaVersion field so future format changes never silently corrupt older backups',
+      'Printed Record Book now matches the on-screen preview exactly — entries always print in strict chronological order, even when backdated or corrected via the M-correction flow',
+      'Light theme is now the default for new installs. If you previously chose dark mode, your preference is preserved'
+    ]
+  },
   {
     version: '1.4.17',
     date: '2026-05-30',
@@ -5119,8 +5131,20 @@ function clearLog() {
   );
 }
 
+// schemaVersion gates future migrations; exportedFromBuild is informational.
+// Backward-compat: v1 files (no schemaVersion, no crew/equipment) still import —
+// missing fields are ignored on import; existing data is left untouched.
 function exportLog() {
-  const data = { tanks: getTanks(), entries: loadEntries(), settings: loadSettings(), exportedAt: now() };
+  const data = {
+    schemaVersion: 2,
+    exportedAt: now(),
+    exportedFromBuild: (typeof APP_VERSION !== 'undefined') ? APP_VERSION : null,
+    tanks:     getTanks(),
+    entries:   loadEntries(),
+    settings:  loadSettings(),
+    crew:      loadCrew(),
+    equipment: loadEquipment()
+  };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -5137,26 +5161,36 @@ function handleImport(e) {
   r.onload = ev => {
     // Snapshot current data for rollback
     const backup = {
-      tanks:    localStorage.getItem(STORE_TANKS),
-      entries:  localStorage.getItem(STORE_ENTRIES),
-      settings: localStorage.getItem(STORE_SETTINGS)
+      tanks:     localStorage.getItem(STORE_TANKS),
+      entries:   localStorage.getItem(STORE_ENTRIES),
+      settings:  localStorage.getItem(STORE_SETTINGS),
+      crew:      localStorage.getItem(STORE_CREW),
+      equipment: localStorage.getItem(STORE_EQUIPMENT)
     };
     function rollback() {
       try {
-        if (backup.tanks    !== null) localStorage.setItem(STORE_TANKS,    backup.tanks);
-        if (backup.entries  !== null) localStorage.setItem(STORE_ENTRIES,  backup.entries);
-        if (backup.settings !== null) localStorage.setItem(STORE_SETTINGS, backup.settings);
+        if (backup.tanks     !== null) localStorage.setItem(STORE_TANKS,     backup.tanks);
+        if (backup.entries   !== null) localStorage.setItem(STORE_ENTRIES,   backup.entries);
+        if (backup.settings  !== null) localStorage.setItem(STORE_SETTINGS,  backup.settings);
+        if (backup.crew      !== null) localStorage.setItem(STORE_CREW,      backup.crew);
+        if (backup.equipment !== null) localStorage.setItem(STORE_EQUIPMENT, backup.equipment);
       } catch(re) { /* best effort */ }
     }
     try {
       const d = JSON.parse(ev.target.result);
       if (!d || typeof d !== 'object') throw new Error('File is not a valid ORB backup.');
-      if (!d.entries && !d.tanks && !d.settings) throw new Error('File does not contain any recognizable ORB data.');
-      if (d.tanks    && !Array.isArray(d.tanks))    throw new Error('tanks field is not an array.');
-      if (d.entries  && !Array.isArray(d.entries))  throw new Error('entries field is not an array.');
-      if (d.tanks)    saveTanks(d.tanks);
-      if (d.entries)  saveEntries(d.entries);
-      if (d.settings) saveSettings(d.settings);
+      if (!d.entries && !d.tanks && !d.settings && !d.crew && !d.equipment) throw new Error('File does not contain any recognizable ORB data.');
+      // Validate field types when present. Missing fields are ignored gracefully
+      // so v1 backups (tanks/entries/settings only) still import.
+      if (d.tanks     && !Array.isArray(d.tanks))     throw new Error('tanks field is not an array.');
+      if (d.entries   && !Array.isArray(d.entries))   throw new Error('entries field is not an array.');
+      if (d.crew      && !Array.isArray(d.crew))      throw new Error('crew field is not an array.');
+      if (d.equipment && !Array.isArray(d.equipment)) throw new Error('equipment field is not an array.');
+      if (d.tanks)     saveTanks(d.tanks);
+      if (d.entries)   saveEntries(d.entries);
+      if (d.settings)  saveSettings(d.settings);
+      if (d.crew)      saveCrewData(d.crew);
+      if (d.equipment) saveEquipmentData(d.equipment);
       showToast('Import successful. ' + (d.entries||[]).length + ' entries loaded.');
       renderLog();
       renderDashboard();
@@ -5185,7 +5219,11 @@ function printRecordBook() {
     showToast('No entries recorded yet.');
     return;
   }
-  container.innerHTML = buildBookPages(entries, vesselName, officialNo);
+  // Statutory ORB pages must be strictly chronological. Sort by date so the
+  // printed book matches the on-screen preview exactly, even when entries are
+  // backdated or re-ordered by M-correction.
+  const sortedForBook = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+  container.innerHTML = buildBookPages(sortedForBook, vesselName, officialNo);
   window.print();
   window.addEventListener('afterprint', function cleanup() {
     container.innerHTML = '';
@@ -9844,7 +9882,9 @@ function bootApp() {
   const vesselName = (s.vesselName || 'MV PRACTICE VESSEL').toUpperCase();
   const sidebarVname = document.getElementById('sidebar-vessel-name-text');
   if (sidebarVname) sidebarVname.textContent = vesselName;
-  applyTheme(!!s.lightMode);
+  // Default new installs to light theme; existing users who chose dark
+  // (lightMode === false) keep their preference. Only undefined gets the default.
+  applyTheme(s.lightMode === undefined ? true : !!s.lightMode);
   seedSampleData();
   // One-time migration: snapshot the current CE name onto any pre-v1.4.7
   // entries that were saved before ceName was stored on the entry itself.

@@ -81,29 +81,38 @@ if (!html.includes('./app.js')) {
   );
 }
 
-// 6. BYPASS the Portable HTML's inner email-based activation gate.
-//    Electron's main process already validated the license before this HTML
-//    loaded. Skip the inner gate by short-circuiting init() to bootApp().
-//    We do this by transforming `async function init()` into a wrapper that
-//    checks for the Electron bridge and jumps straight to bootApp().
+// 6. ENFORCE main as the sole licensing authority (v1.4.19 security hotfix).
+//    Electron's main process validates a MACHINE-BOUND license before this HTML
+//    is loaded; if there is no valid license it loads cep-activate.html instead,
+//    not this file. We rewrite init() so the ONLY way to bootApp() under Electron
+//    is window.eORB.license (the main-validated license). The original
+//    device-less orb_lic_token fallback below is made unreachable in the Electron
+//    build — a copied orb_lic_token can no longer unlock the app.
 {
   const initRx = /async\s+function\s+init\s*\(\s*\)\s*\{\s*\n\s*\/\/\s*Clean up any leftover device-bound/;
   if (initRx.test(html)) {
     html = html.replace(
       initRx,
       `async function init() {
-  // [Electron build] License already validated by main process. Skip inner gate.
-  if (window.eORB && window.eORB.license) {
-    try { hideActivationGate(); } catch(_) {}
-    bootApp();
-    try { checkForUpdate(); } catch(_) {}
+  // [Electron CEP — v1.4.19] MAIN is the sole licensing authority. Under Electron
+  // (window.eORB present) only a main-validated, machine-bound license may unlock
+  // the app; the device-less orb_lic_token path below is never reached here.
+  if (window.eORB) {
+    if (window.eORB.license) {
+      try { hideActivationGate(); } catch(_) {}
+      bootApp();
+      try { checkForUpdate(); } catch(_) {}
+    } else {
+      try { document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0d12;color:#8a96a6;font-family:system-ui,-apple-system,sans-serif;font-size:14px;text-align:center;padding:24px">Activation required. Please relaunch eORB CEP.</div>'; } catch(_) {}
+    }
     return;
   }
   // Clean up any leftover device-bound`
     );
-    console.log('[prepare-ui] activation bypass patch applied to init()');
+    console.log('[prepare-ui] v1.4.19 main-authority gate applied to init()');
   } else {
-    console.warn('[prepare-ui] WARNING: could not find init() function — activation bypass NOT applied. Customer will see the inner activation gate.');
+    console.error('[prepare-ui] FATAL: could not find init() — main-authority gate NOT applied. ABORTING so a vulnerable renderer is never built.');
+    process.exit(1);
   }
 }
 

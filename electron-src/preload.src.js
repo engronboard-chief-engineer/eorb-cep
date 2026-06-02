@@ -27,6 +27,9 @@ contextBridge.exposeInMainWorld('eORB', {
     key: String(key || ''),
     email: String(email || '')
   }),
+  // CEP email registration (v1.4.19). Used by cep-activate.html; main performs
+  // the n8n call and seals the license to this machine.
+  registerEmail: (email) => ipcRenderer.invoke('eorb:register-email', String(email || '')),
   deactivate: () => ipcRenderer.invoke('eorb:deactivate'),
 
   // Portable first-activation ceremony.
@@ -70,10 +73,17 @@ contextBridge.exposeInMainWorld('eORB', {
     }
   },
 
+  // Diagnostics surface (v1.4.18) — used by Settings → Diagnostics panel
+  // so customer support gets a single snapshot to read.
+  diag: {
+    getInfo: () => ipcRenderer.invoke('eorb:diag:getInfo'),
+    openLogs: () => ipcRenderer.invoke('eorb:diag:openLogs')
+  },
+
   build: {
     productName: _isPortable ? 'eORB Pro Portable' : 'eORB CEP',
     edition: _isPortable ? 'Pro Portable Edition' : 'CEP Edition',
-    version: '1.4.11-portable-electron',
+    version: '1.4.19-portable-electron',
     platform: process.platform,
     isPortable: _isPortable
   }

@@ -27,10 +27,72 @@ const db = require('./db');
 let autoUpdater = null;
 try { autoUpdater = require('electron-updater').autoUpdater; } catch (_) {}
 
-const APP_VERSION = '1.4.16-portable-electron';
+const APP_VERSION = '1.4.19-portable-electron';
 const UPDATE_FEED_URL = 'https://www.chiefengineerpro.com/orb/electron-version.json';
 
 const IS_DEV = !app.isPackaged;
+
+// ============================================================
+// Diagnostics + startup log (v1.4.18)
+// ============================================================
+// Append-only line-per-event log at userData/logs/startup.log. Bounded to
+// ~5 MB before rotation. Never writes raw license keys, machine fingerprints,
+// or activation tokens — only short hashes / status strings.
+const STARTUP_LOG_MAX_BYTES = 5 * 1024 * 1024;
+
+function _logsDir() {
+  try { return path.join(app.getPath('userData'), 'logs'); }
+  catch (_) { return null; }
+}
+function _logFilePath() {
+  const dir = _logsDir();
+  return dir ? path.join(dir, 'startup.log') : null;
+}
+function _rotateLogIfLarge(file) {
+  try {
+    const st = fs.statSync(file);
+    if (st.size > STARTUP_LOG_MAX_BYTES) {
+      const rotated = file + '.1';
+      try { fs.unlinkSync(rotated); } catch (_) {}
+      try { fs.renameSync(file, rotated); } catch (_) {}
+    }
+  } catch (_) {}
+}
+function logStartupLine(obj) {
+  const file = _logFilePath();
+  if (!file) return;
+  try {
+    const dir = path.dirname(file);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    _rotateLogIfLarge(file);
+    const line = JSON.stringify(Object.assign({ ts: new Date().toISOString() }, obj)) + '\n';
+    fs.appendFileSync(file, line, 'utf8');
+  } catch (_) {}
+}
+function _shortHash(s) {
+  try { return require('crypto').createHash('sha256').update(String(s || '')).digest('hex').slice(0, 8); }
+  catch (_) { return 'na'; }
+}
+
+const _startupT0 = Date.now();
+let _startupSummary = {
+  event: 'startup',
+  appVersion: APP_VERSION,
+  electronVersion: process.versions && process.versions.electron,
+  chromeVersion: process.versions && process.versions.chrome,
+  nodeVersion: process.versions && process.versions.node,
+  platform: process.platform,
+  arch: process.arch,
+  osRelease: (() => { try { return require('os').release(); } catch (_) { return null; } })(),
+  packaged: app.isPackaged,
+  isDev: IS_DEV
+};
+// Filled in later by activation + integrity + updates steps:
+let _licenseStatus = 'unknown';
+let _activationEmailHash = null;
+let _integrityResult = 'not-run';
+let _machineFingerprintHash = null;
+let _lastUpdateCheck = null;
 
 // Portable detection: electron-builder's portable target sets
 // PORTABLE_EXECUTABLE_DIR to the runtime extract dir. The actual USB-root
@@ -64,6 +126,17 @@ function resolveUsbRoot() {
 
 function resolveUsbDataDir(usbRoot) {
   return isPortableBuild() ? path.join(usbRoot, 'eorb-data') : usbRoot;
+}
+
+// CEP (installer) machine-bound license check — v1.4.19 security gate.
+// Returns the license object (key-based OR email-registration, both sealed to
+// this machine) or null. Null => the renderer simulator must NOT load; route
+// to cep-activate.html instead. This is the sole boot authority for CEP.
+function cepLicenseObject() {
+  try {
+    const ud = app.getPath('userData');
+    return activation.loadLicense(ud) || activation.loadEmailLicense(ud);
+  } catch (_) { return null; }
 }
 
 // Register eorb:// for one-click activation in the installer build.
@@ -202,7 +275,7 @@ function registerIpc() {
     try {
       const full = isPortableBuild()
         ? activation.loadPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash)
-        : activation.loadLicense(app.getPath('userData'));
+        : (activation.loadLicense(app.getPath('userData')) || activation.loadEmailLicense(app.getPath('userData')));
       if (full) {
         lic = {
           customer_id: full.customer_id,
@@ -257,9 +330,35 @@ function registerIpc() {
         activation.clearPortableLicense(resolveUsbDataDir(_usbRoot));
       } else {
         activation.clearLicense(app.getPath('userData'));
+        activation.clearEmailLicense(app.getPath('userData'));
       }
       return { ok: true };
     } catch (err) { return { ok: false, error: err.message }; }
+  });
+
+  // --- CEP email registration (v1.4.19 security hotfix) ---
+  // The activation screen (cep-activate.html) collects the CEP email and calls
+  // this. MAIN does the n8n registration and seals the result to THIS machine,
+  // then reloads the simulator. The renderer never touches n8n and cannot mint
+  // a license on its own.
+  ipcMain.handle('eorb:register-email', async (_evt, email) => {
+    if (isPortableBuild()) return { ok: false, error: 'wrong_flow_for_portable_build' };
+    try {
+      const res = await activation.registerEmailOnline(email, APP_VERSION);
+      if (!res.ok) return res;
+      activation.writeEmailLicense(app.getPath('userData'), { email: res.email, token: res.token });
+      _licenseStatus = 'active';
+      _activationEmailHash = _shortHash(res.email);
+      logStartupLine({ event: 'activation', method: 'email', emailHash: _activationEmailHash });
+      if (mainWindow) {
+        setTimeout(() => {
+          mainWindow.loadFile(path.join(app.getAppPath(), 'ui', 'index.html'));
+        }, 300);
+      }
+      return { ok: true, email: res.email };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
   });
 
   // --- Portable: first-activation agreement ceremony ---
@@ -368,6 +467,7 @@ function registerIpc() {
   // legacy feed-fetch so the banner UI is unchanged. For NSIS we also note
   // autoUpdate=true so the banner knows to swap "Open browser" -> "Update".
   ipcMain.handle('eorb:updates:check', async () => {
+    _lastUpdateCheck = new Date().toISOString();
     if (_useAutoUpdater) {
       try {
         const res = await autoUpdater.checkForUpdates();
@@ -410,15 +510,29 @@ function registerIpc() {
                 const downloadUrl = platform === 'mac'
                   ? (j.downloadUrlMac || j.downloadUrl || null)
                   : (j.downloadUrlWin || j.downloadUrl || null);
+                // v1.4.18: prefer the per-version entry from releases[] so the
+                // returned headline + notes match `latestVersion`. Falls back
+                // to the top-level headline/notes if releases[] is missing
+                // (legacy feed schema). This is the permanent fix for Finding O.
+                const latestVer = j.version || j.latest || null;
+                let headline = j.headline || null;
+                let notes = j.notes || '';
+                if (Array.isArray(j.releases) && latestVer) {
+                  const entry = j.releases.find((r) => r && r.version === latestVer);
+                  if (entry) {
+                    headline = entry.headline || entry.title || headline;
+                    notes = entry.notes || notes;
+                  }
+                }
                 resolve({
                   ok: true,
                   autoUpdate: false,
                   currentVersion: APP_VERSION,
-                  latestVersion: j.version || j.latest || null,
+                  latestVersion: latestVer,
                   downloadUrl,
                   sizeMb: j.sizeMb || null,
-                  headline: j.headline || null,
-                  notes: j.notes || '',
+                  headline,
+                  notes,
                   urgency: j.urgency || 'recommended'
                 });
               } catch (err) {
@@ -464,6 +578,70 @@ function registerIpc() {
     try { await shell.openExternal(url); return { ok: true }; }
     catch (err) { return { ok: false, error: err.message }; }
   });
+
+  // -----------------------------------------------------------
+  // Diagnostics (v1.4.18). Returns a support-friendly snapshot
+  // and exposes "open logs folder" without leaking sensitive data.
+  // -----------------------------------------------------------
+  ipcMain.handle('eorb:diag:getInfo', async () => {
+    let logFile = _logFilePath();
+    let logSize = null;
+    try { logSize = fs.existsSync(logFile) ? fs.statSync(logFile).size : 0; } catch (_) {}
+    let userDataSizeMb = null;
+    try {
+      const dir = app.getPath('userData');
+      let total = 0;
+      const stack = [dir];
+      while (stack.length && total < 500 * 1024 * 1024) { // cap walk at 500 MB
+        const p = stack.pop();
+        try {
+          const st = fs.statSync(p);
+          if (st.isDirectory()) {
+            const entries = fs.readdirSync(p);
+            for (const e of entries) stack.push(path.join(p, e));
+          } else {
+            total += st.size;
+          }
+        } catch (_) {}
+      }
+      userDataSizeMb = Math.round(total / 1024 / 1024 * 10) / 10;
+    } catch (_) {}
+    return {
+      ok: true,
+      appVersion: APP_VERSION,
+      packageVersion: app.getVersion(),
+      isPortable: isPortableBuild(),
+      isDev: IS_DEV,
+      electronVersion: process.versions.electron,
+      chromeVersion: process.versions.chrome,
+      nodeVersion: process.versions.node,
+      platform: process.platform,
+      arch: process.arch,
+      osRelease: (() => { try { return require('os').release(); } catch (_) { return null; } })(),
+      licenseStatus: _licenseStatus,
+      activationEmailHash: _activationEmailHash,
+      machineFingerprintHash: _machineFingerprintHash,
+      integrity: _integrityResult,
+      userDataDir: (() => { try { return app.getPath('userData'); } catch (_) { return null; } })(),
+      logFile,
+      logSizeBytes: logSize,
+      lastUpdateCheck: _lastUpdateCheck,
+      startedAt: new Date(_startupT0).toISOString()
+    };
+  });
+
+  ipcMain.handle('eorb:diag:openLogs', async () => {
+    const dir = _logsDir();
+    if (!dir) return { ok: false, error: 'logs_dir_unavailable' };
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      // openPath returns '' on success, error string otherwise.
+      const err = await shell.openPath(dir);
+      return err ? { ok: false, error: err } : { ok: true, path: dir };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
+  });
 }
 
 app.on('second-instance', (_evt, argv) => {
@@ -485,7 +663,9 @@ app.whenReady().then(() => {
   // 1. Integrity check (production only).
   if (!IS_DEV) {
     const res = integrity.verify(app.getAppPath());
+    _integrityResult = res.ok ? 'ok' : ('fail:' + (res.reason || 'unknown'));
     if (!res.ok) {
+      logStartupLine({ event: 'fatal', stage: 'integrity', reason: res.reason });
       showFatal('Integrity violation detected',
         'eORB failed its integrity check and will now exit.\n\n' +
         'Reason: ' + res.reason + '\n\n' +
@@ -493,6 +673,8 @@ app.whenReady().then(() => {
       app.quit();
       return;
     }
+  } else {
+    _integrityResult = 'skipped-dev';
   }
 
   applyCSP();
@@ -504,6 +686,7 @@ app.whenReady().then(() => {
     if (r.ok) {
       _usbHash = r.hash;
     } else {
+      logStartupLine({ event: 'fatal', stage: 'usb', reason: r.error });
       showFatal('USB drive not detected',
         'eORB Pro Portable must run from a USB drive.\n\n' +
         'Reason: ' + r.error + '\n\n' +
@@ -517,7 +700,7 @@ app.whenReady().then(() => {
 
   // 3. Open SQLite at the resolved data dir.
   try { db.init(resolveUsbDataDir(_usbRoot)); }
-  catch (err) { console.error('[main] db init failed:', err.message); }
+  catch (err) { console.error('[main] db init failed:', err.message); logStartupLine({ event: 'warn', stage: 'db-init', reason: err.message }); }
 
   // 4. Route to activation or main UI.
   // NSIS builds always open index.html (has its own activation gate).
@@ -527,8 +710,29 @@ app.whenReady().then(() => {
     hasLic = activation.hasValidPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash);
     mainWindow = createMainWindow(hasLic ? 'index.html' : 'activation.html');
   } else {
-    mainWindow = createMainWindow('index.html');
+    // CEP-installer (v1.4.19): MAIN is the sole licensing authority. Only load
+    // the simulator when a machine-bound license (key-based OR email-sealed)
+    // is valid on THIS machine; otherwise route to the trusted activation
+    // screen. A copied database.db / %APPDATA% / install dir has no valid seal
+    // here, so it lands on cep-activate.html — the bypass is closed.
+    const lic = cepLicenseObject();
+    _licenseStatus = lic ? 'active' : 'not-activated';
+    if (lic && lic.email) _activationEmailHash = _shortHash(lic.email);
+    mainWindow = createMainWindow(lic ? 'index.html' : 'cep-activate.html');
   }
+
+  // Capture machine fingerprint hash (short, non-reversible) for support snapshots.
+  try { _machineFingerprintHash = _shortHash(machine.getFingerprint()); } catch (_) {}
+
+  // Emit one consolidated startup line.
+  logStartupLine(Object.assign({}, _startupSummary, {
+    event: 'startup-complete',
+    licenseStatus: _licenseStatus,
+    activationEmailHash: _activationEmailHash,
+    machineFingerprintHash: _machineFingerprintHash,
+    integrity: _integrityResult,
+    durationMs: Date.now() - _startupT0
+  }));
 });
 
 app.on('window-all-closed', () => {
@@ -542,7 +746,7 @@ app.on('activate', () => {
       const hasLic = activation.hasValidPortableLicense(resolveUsbDataDir(_usbRoot), _usbHash);
       createMainWindow(hasLic ? 'index.html' : 'activation.html');
     } else {
-      createMainWindow('index.html');
+      createMainWindow(cepLicenseObject() ? 'index.html' : 'cep-activate.html');
     }
   }
 });
