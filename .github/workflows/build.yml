@@ -40,17 +40,10 @@ jobs:
       - name: Build (prep + obfuscate + integrity)
         run: npm run build
 
-      - name: Package Windows installer
+      - name: Package Windows installer + publish
         run: npm run dist:win
-
-      - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/eORB CEP-*.exe
-            dist/eORB-Pro-Portable-*.exe
-          draft: false
-          prerelease: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-mac:
     runs-on: macos-latest
@@ -81,16 +74,8 @@ jobs:
       - name: Build (prep + obfuscate + integrity)
         run: npm run build
 
-      - name: Package macOS dmg (unsigned)
+      - name: Package macOS dmg (unsigned) + publish
         run: npm run dist:mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-
-      - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/eORB CEP-*.dmg
-            dist/eORB CEP-*.zip
-          draft: false
-          prerelease: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
